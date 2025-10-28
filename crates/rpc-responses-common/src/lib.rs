@@ -19,7 +19,9 @@ use solders_account_decoder::UiTokenAmount;
 use solders_hash::Hash as SolderHash;
 use solders_macros::{common_methods, richcmp_eq_only};
 use solders_pubkey::Pubkey;
+use solders_signature::Signature;
 use solders_transaction_error::TransactionErrorType;
+use solders_transaction_status::EncodedTransactionWithStatusMeta;
 
 use solders_rpc_response_data_boilerplate::response_data_boilerplate;
 
@@ -178,6 +180,20 @@ macro_rules! notification_struct_def_contextless {
 }
 
 #[macro_export]
+macro_rules! notification_struct_def_contextless_no_eq {
+    ($name:ident, $inner:ty) => {
+        #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+        #[pyclass(module = "solders.rpc.responses", subclass)]
+        pub struct $name {
+            #[pyo3(get)]
+            result: $inner,
+            #[pyo3(get)]
+            subscription: u64,
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! notification_struct_def_no_eq {
     ($name:ident, $inner:ty) => {
         notification_struct_def_outer_no_eq!($name);
@@ -262,6 +278,14 @@ macro_rules! notification_no_eq {
 macro_rules! notification_contextless {
     ($name:ident, $inner:ty) => {
         notification_struct_def_contextless!($name, $inner);
+        notification_boilerplate_contextless!($name, $inner);
+    };
+}
+
+#[macro_export]
+macro_rules! notification_contextless_no_eq {
+    ($name:ident, $inner:ty) => {
+        notification_struct_def_contextless_no_eq!($name, $inner);
         notification_boilerplate_contextless!($name, $inner);
     };
 }
@@ -701,6 +725,23 @@ notification!(ProgramNotification, RpcKeyedAccount);
 notification!(ProgramNotificationJsonParsed, RpcKeyedAccountJsonParsed);
 notification!(SignatureNotification, RpcSignatureResponse);
 notification_contextless!(RootNotification, u64);
+
+#[serde_as]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcTransactionNotification {
+    #[pyo3(get)]
+    pub slot: u64,
+    #[serde_as(as = "DisplayFromStr")]
+    #[pyo3(get)]
+    pub signature: Signature,
+    #[pyo3(get)]
+    pub transaction: EncodedTransactionWithStatusMeta,
+}
+
+response_data_boilerplate!(RpcTransactionNotification);
+notification_contextless_no_eq!(TransactionNotification, RpcTransactionNotification);
 
 #[derive(FromPyObject, Serialize, Deserialize, Clone, Debug, PartialEq, Eq, IntoPyObject)]
 #[serde(untagged)]

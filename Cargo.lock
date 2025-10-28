@@ -4991,8 +4991,10 @@ dependencies = [
  "solders-pubkey",
  "solders-rpc-response-data-boilerplate",
  "solders-rpc-version",
+ "solders-signature",
  "solders-traits-core",
  "solders-transaction-error",
+ "solders-transaction-status",
 ]
 
 [[package]]
