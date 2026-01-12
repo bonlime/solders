@@ -41,6 +41,7 @@ pub fn include_system_program(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let funcs = [
         wrap_pyfunction!(create_account, m)?,
         wrap_pyfunction!(decode_create_account, m)?,
+        wrap_pyfunction!(decode_system_instruction, m)?,
         wrap_pyfunction!(create_account_with_seed, m)?,
         wrap_pyfunction!(decode_create_account_with_seed, m)?,
         wrap_pyfunction!(assign, m)?,
@@ -646,6 +647,217 @@ pub fn decode_authorize_nonce_account(
             "Not an AuthorizeNonceAccount instruction",
         )),
     }
+}
+
+#[derive(FromPyObject, IntoPyObject)]
+pub struct UpgradeNonceAccountParams {
+    nonce_pubkey: Pubkey,
+}
+
+#[pyfunction]
+pub fn decode_system_instruction(
+    py: Python<'_>,
+    instruction: Instruction,
+) -> PyResult<(u32, PyObject)> {
+    if instruction.0.program_id != system_program::ID {
+        return Err(PyValueError::new_err(
+            "instruction.program_id is not SYSTEM_PROGRAM_ID",
+        ));
+    }
+
+    if instruction.0.data.len() < 4 {
+        return Err(PyValueError::new_err("instruction.data is too short"));
+    }
+    let tag = u32::from_le_bytes(
+        instruction.0.data[0..4]
+            .try_into()
+            .expect("slice length checked"),
+    );
+
+    let keys = &instruction.0.accounts;
+    let key_pubkey = |idx: usize| -> PyResult<PubkeyOriginal> {
+        keys.get(idx)
+            .map(|m| m.pubkey)
+            .ok_or_else(|| {
+                PyValueError::new_err(format!("Not enough accounts (missing index {idx})"))
+            })
+    };
+
+    let parsed_data = handle_py_err(bincode::deserialize::<SystemInstructionOriginal>(
+        instruction.0.data.as_slice(),
+    ))?;
+
+    Ok(match parsed_data {
+        SystemInstructionOriginal::CreateAccount {
+            lamports,
+            space,
+            owner,
+        } => (
+            tag,
+            CreateAccountParams {
+                from_pubkey: key_pubkey(0)?.into(),
+                to_pubkey: key_pubkey(1)?.into(),
+                lamports,
+                space,
+                owner: owner.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind()
+        ),
+        SystemInstructionOriginal::CreateAccountWithSeed {
+            base,
+            seed,
+            lamports,
+            space,
+            owner,
+        } => (
+            tag,
+            CreateAccountWithSeedParams {
+                from_pubkey: key_pubkey(0)?.into(),
+                to_pubkey: key_pubkey(1)?.into(),
+                base: base.into(),
+                seed,
+                lamports,
+                space,
+                owner: owner.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::Assign { owner } => (
+            tag,
+            AssignParams {
+                pubkey: key_pubkey(0)?.into(),
+                owner: owner.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::AssignWithSeed { base, seed, owner } => (
+            tag,
+            AssignWithSeedParams {
+                address: key_pubkey(0)?.into(),
+                base: base.into(),
+                seed,
+                owner: owner.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::Transfer { lamports } => (
+            tag,
+            TransferParams {
+                from_pubkey: key_pubkey(0)?.into(),
+                to_pubkey: key_pubkey(1)?.into(),
+                lamports,
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::TransferWithSeed {
+            lamports,
+            from_seed,
+            from_owner,
+        } => (
+            tag,
+            TransferWithSeedParams {
+                from_pubkey: key_pubkey(0)?.into(),
+                from_base: key_pubkey(1)?.into(),
+                from_seed,
+                from_owner: from_owner.into(),
+                to_pubkey: key_pubkey(2)?.into(),
+                lamports,
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::Allocate { space } => (
+            tag,
+            AllocateParams {
+                pubkey: key_pubkey(0)?.into(),
+                space,
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::AllocateWithSeed {
+            base,
+            seed,
+            space,
+            owner,
+        } => (
+            tag,
+            AllocateWithSeedParams {
+                address: key_pubkey(0)?.into(),
+                base: base.into(),
+                seed,
+                space,
+                owner: owner.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::InitializeNonceAccount(authority) => (
+            tag,
+            InitializeNonceAccountParams {
+                nonce_pubkey: key_pubkey(0)?.into(),
+                authority: authority.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::AdvanceNonceAccount => (
+            tag,
+            AdvanceNonceAccountParams {
+                nonce_pubkey: key_pubkey(0)?.into(),
+                authorized_pubkey: key_pubkey(2)?.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::WithdrawNonceAccount(lamports) => (
+            tag,
+            WithdrawNonceAccountParams {
+                nonce_pubkey: key_pubkey(0)?.into(),
+                to_pubkey: key_pubkey(1)?.into(),
+                authorized_pubkey: key_pubkey(4)?.into(),
+                lamports,
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::AuthorizeNonceAccount(new_authority) => (
+            tag,
+            AuthorizeNonceAccountParams {
+                nonce_pubkey: key_pubkey(0)?.into(),
+                authorized_pubkey: key_pubkey(1)?.into(),
+                new_authority: new_authority.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+        SystemInstructionOriginal::UpgradeNonceAccount => (
+            tag,
+            UpgradeNonceAccountParams {
+                nonce_pubkey: key_pubkey(0)?.into(),
+            }
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        ),
+    })
 }
 
 #[derive(FromPyObject, IntoPyObject)]

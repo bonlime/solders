@@ -1,5 +1,6 @@
-from typing import cast, Tuple, Optional, List
-from typing_extensions import Final, TypedDict
+from enum import IntEnum
+from typing import NamedTuple
+from typing_extensions import Final
 
 from .solders import SYSTEM_PROGRAM_ID as _ID
 from .solders import advance_nonce_account as _advance_nonce_account
@@ -33,6 +34,7 @@ from .solders import decode_create_account as _decode_create_account
 from .solders import (
     decode_create_account_with_seed as _decode_create_account_with_seed,
 )
+from .solders import decode_system_instruction as _decode_system_instruction
 from .solders import (
     decode_initialize_nonce_account as _decode_initialize_nonce_account,
 )
@@ -70,8 +72,23 @@ from solders.pubkey import Pubkey
 ID: Final[Pubkey] = _ID
 """Pubkey that identifies the System program."""
 
+class SystemInstructionTag(IntEnum):
+    CreateAccount = 0
+    Assign = 1
+    Transfer = 2
+    CreateAccountWithSeed = 3
+    AdvanceNonceAccount = 4
+    WithdrawNonceAccount = 5
+    InitializeNonceAccount = 6
+    AuthorizeNonceAccount = 7
+    Allocate = 8
+    AllocateWithSeed = 9
+    AssignWithSeed = 10
+    TransferWithSeed = 11
+    UpgradeNonceAccount = 12
 
-class CreateAccountParams(TypedDict):
+
+class CreateAccountParams(NamedTuple):
     """Create account system transaction params."""
 
     from_pubkey: Pubkey
@@ -108,7 +125,7 @@ def create_account(params: CreateAccountParams) -> Instruction:
     Returns:
         Instruction: The instruction to create the account.
     """
-    return _create_account(dict(params))
+    return _create_account(params._asdict())
 
 
 def decode_create_account(instruction: Instruction) -> CreateAccountParams:
@@ -120,10 +137,10 @@ def decode_create_account(instruction: Instruction) -> CreateAccountParams:
     Returns:
         CreateAccountParams: The params used to create the instruction.
     """
-    return cast(CreateAccountParams, _decode_create_account(instruction))
+    return CreateAccountParams(**_decode_create_account(instruction))
 
 
-class CreateAccountWithSeedParams(TypedDict):
+class CreateAccountWithSeedParams(NamedTuple):
     """Create account with seed system transaction params."""
 
     from_pubkey: Pubkey
@@ -154,7 +171,7 @@ def create_account_with_seed(params: CreateAccountWithSeedParams) -> Instruction
     Returns:
         Instruction: The instruction to create the account.
     """  # noqa: E501
-    return _create_account_with_seed(dict(params))
+    return _create_account_with_seed(params._asdict())
 
 
 def decode_create_account_with_seed(
@@ -168,12 +185,10 @@ def decode_create_account_with_seed(
     Returns:
         CreateAccountWithSeedParams: The params used to create the instruction.
     """
-    return cast(
-        CreateAccountWithSeedParams, _decode_create_account_with_seed(instruction)
-    )
+    return CreateAccountWithSeedParams(**_decode_create_account_with_seed(instruction))
 
 
-class AssignParams(TypedDict):
+class AssignParams(NamedTuple):
     """Assign system transaction params."""
 
     pubkey: Pubkey
@@ -201,7 +216,7 @@ def assign(params: AssignParams) -> Instruction:
         >>> type(instruction)
         <class 'solders.instruction.Instruction'>
     """
-    return _assign(dict(params))
+    return _assign(params._asdict())
 
 
 def decode_assign(instruction: Instruction) -> AssignParams:
@@ -213,10 +228,10 @@ def decode_assign(instruction: Instruction) -> AssignParams:
     Returns:
         AssignParams: The params used to create the instruction.
     """
-    return cast(AssignParams, _decode_assign(instruction))
+    return AssignParams(**_decode_assign(instruction))
 
 
-class AssignWithSeedParams(TypedDict):
+class AssignWithSeedParams(NamedTuple):
     """Assign account with seed system transaction params."""
 
     address: Pubkey
@@ -238,7 +253,7 @@ def assign_with_seed(params: AssignWithSeedParams) -> Instruction:
     Returns:
         Instruction: The generated instruction.
     """
-    return _assign_with_seed(dict(params))
+    return _assign_with_seed(params._asdict())
 
 
 def decode_assign_with_seed(instruction: Instruction) -> AssignWithSeedParams:
@@ -250,10 +265,10 @@ def decode_assign_with_seed(instruction: Instruction) -> AssignWithSeedParams:
     Returns:
         AssignWithSeedParams: The params used to create the instruction.
     """
-    return cast(AssignWithSeedParams, _decode_assign_with_seed(instruction))
+    return AssignWithSeedParams(**_decode_assign_with_seed(instruction))
 
 
-class TransferParams(TypedDict):
+class TransferParams(NamedTuple):
     """Transfer system transaction params."""
 
     from_pubkey: Pubkey
@@ -283,7 +298,7 @@ def transfer(params: TransferParams) -> Instruction:
     Returns:
         Instruction: The transfer instruction.
     """
-    return _transfer(dict(params))
+    return _transfer(params._asdict())
 
 
 def decode_transfer(instruction: Instruction) -> TransferParams:
@@ -295,10 +310,10 @@ def decode_transfer(instruction: Instruction) -> TransferParams:
     Returns:
         TransferParams: The params used to create the instruction.
     """
-    return cast(TransferParams, _decode_transfer(instruction))
+    return TransferParams(**_decode_transfer(instruction))
 
 
-class TransferWithSeedParams(TypedDict):
+class TransferWithSeedParams(NamedTuple):
     """Transfer with seed system transaction params."""
 
     from_pubkey: Pubkey
@@ -324,7 +339,7 @@ def transfer_with_seed(params: TransferWithSeedParams) -> Instruction:
     Returns:
         Instruction: The TransferWithSeed instruction.
     """
-    return _transfer_with_seed(dict(params))
+    return _transfer_with_seed(params._asdict())
 
 
 def decode_transfer_with_seed(instruction: Instruction) -> TransferWithSeedParams:
@@ -336,10 +351,10 @@ def decode_transfer_with_seed(instruction: Instruction) -> TransferWithSeedParam
     Returns:
         TransferWithSeedParams: The params used to create the instruction.
     """
-    return cast(TransferWithSeedParams, _decode_transfer_with_seed(instruction))
+    return TransferWithSeedParams(**_decode_transfer_with_seed(instruction))
 
 
-class AllocateParams(TypedDict):
+class AllocateParams(NamedTuple):
     """Allocate account system transaction params."""
 
     pubkey: Pubkey
@@ -368,7 +383,7 @@ def allocate(params: AllocateParams) -> Instruction:
         <class 'solders.instruction.Instruction'>
 
     """
-    return _allocate(dict(params))
+    return _allocate(params._asdict())
 
 
 def decode_allocate(instruction: Instruction) -> AllocateParams:
@@ -380,10 +395,10 @@ def decode_allocate(instruction: Instruction) -> AllocateParams:
     Returns:
         AllocateParams: The params used to create the instruction.
     """
-    return cast(AllocateParams, _decode_allocate(instruction))
+    return AllocateParams(**_decode_allocate(instruction))
 
 
-class AllocateWithSeedParams(TypedDict):
+class AllocateWithSeedParams(NamedTuple):
     """Allocate account with seed system transaction params."""
 
     address: Pubkey
@@ -407,7 +422,7 @@ def allocate_with_seed(params: AllocateWithSeedParams) -> Instruction:
     Returns:
         Instruction: The AllocateWithSeed instruction.
     """
-    return _allocate_with_seed(dict(params))
+    return _allocate_with_seed(params._asdict())
 
 
 def decode_allocate_with_seed(instruction: Instruction) -> AllocateWithSeedParams:
@@ -419,10 +434,10 @@ def decode_allocate_with_seed(instruction: Instruction) -> AllocateWithSeedParam
     Returns:
         AllocateWithSeedParams: The params used to create the instruction.
     """
-    return cast(AllocateWithSeedParams, _decode_allocate_with_seed(instruction))
+    return AllocateWithSeedParams(**_decode_allocate_with_seed(instruction))
 
 
-class InitializeNonceAccountParams(TypedDict):
+class InitializeNonceAccountParams(NamedTuple):
     """Initialize nonce account system instruction params."""
 
     nonce_pubkey: Pubkey
@@ -440,7 +455,7 @@ def initialize_nonce_account(params: InitializeNonceAccountParams) -> Instructio
     Returns:
         Instruction: The InitializeNonceAccount instruction.
     """
-    return _initialize_nonce_account(dict(params))
+    return _initialize_nonce_account(params._asdict())
 
 
 def decode_initialize_nonce_account(
@@ -454,12 +469,10 @@ def decode_initialize_nonce_account(
     Returns:
         InitializeNonceAccountParams: The params used to create the instruction.
     """
-    return cast(
-        InitializeNonceAccountParams, _decode_initialize_nonce_account(instruction)
-    )
+    return InitializeNonceAccountParams(**_decode_initialize_nonce_account(instruction))
 
 
-class AdvanceNonceAccountParams(TypedDict):
+class AdvanceNonceAccountParams(NamedTuple):
     """Advance nonce account system instruction params."""
 
     nonce_pubkey: Pubkey
@@ -477,7 +490,7 @@ def advance_nonce_account(params: AdvanceNonceAccountParams) -> Instruction:
     Returns:
         Instruction: The AdvanceNonceAccount instruction.
     """
-    return _advance_nonce_account(dict(params))
+    return _advance_nonce_account(params._asdict())
 
 
 def decode_advance_nonce_account(instruction: Instruction) -> AdvanceNonceAccountParams:
@@ -489,10 +502,10 @@ def decode_advance_nonce_account(instruction: Instruction) -> AdvanceNonceAccoun
     Returns:
         AdvanceNonceAccountParams: The params used to create the instruction.
     """
-    return cast(AdvanceNonceAccountParams, _decode_advance_nonce_account(instruction))
+    return AdvanceNonceAccountParams(**_decode_advance_nonce_account(instruction))
 
 
-class WithdrawNonceAccountParams(TypedDict):
+class WithdrawNonceAccountParams(NamedTuple):
     """Withdraw nonce account system transaction params."""
 
     nonce_pubkey: Pubkey
@@ -514,7 +527,7 @@ def withdraw_nonce_account(params: WithdrawNonceAccountParams) -> Instruction:
     Returns:
         Instruction: The WithdrawNonceAccount instruction.
     """
-    return _withdraw_nonce_account(dict(params))
+    return _withdraw_nonce_account(params._asdict())
 
 
 def decode_withdraw_nonce_account(
@@ -528,10 +541,10 @@ def decode_withdraw_nonce_account(
     Returns:
         WithdrawNonceAccountParams: The params used to create the instruction.
     """
-    return cast(WithdrawNonceAccountParams, _decode_withdraw_nonce_account(instruction))
+    return WithdrawNonceAccountParams(**_decode_withdraw_nonce_account(instruction))
 
 
-class AuthorizeNonceAccountParams(TypedDict):
+class AuthorizeNonceAccountParams(NamedTuple):
     """Authorize nonce account system transaction params."""
 
     nonce_pubkey: Pubkey
@@ -551,7 +564,7 @@ def authorize_nonce_account(params: AuthorizeNonceAccountParams) -> Instruction:
     Returns:
         Instruction: The AuthorizeNonceAccount instruction.
     """
-    return _authorize_nonce_account(dict(params))
+    return _authorize_nonce_account(params._asdict())
 
 
 def decode_authorize_nonce_account(
@@ -565,12 +578,76 @@ def decode_authorize_nonce_account(
     Returns:
         AuthorizeNonceAccountParams: The params used to create the instruction.
     """
-    return cast(
-        AuthorizeNonceAccountParams, _decode_authorize_nonce_account(instruction)
-    )
+    return AuthorizeNonceAccountParams(**_decode_authorize_nonce_account(instruction))
 
 
-class CloseLookupTableParams(TypedDict):
+class UpgradeNonceAccountParams(NamedTuple):
+    """Upgrade nonce account system transaction params."""
+
+    nonce_pubkey: Pubkey
+    """Nonce account."""
+
+
+SystemInstructionParams = (
+    CreateAccountParams
+    | CreateAccountWithSeedParams
+    | AssignParams
+    | AssignWithSeedParams
+    | TransferParams
+    | TransferWithSeedParams
+    | AllocateParams 
+    | AllocateWithSeedParams 
+    | InitializeNonceAccountParams 
+    | AdvanceNonceAccountParams 
+    | WithdrawNonceAccountParams
+    | AuthorizeNonceAccountParams
+    | UpgradeNonceAccountParams
+)
+
+
+def decode_system_instruction(instruction: Instruction) -> SystemInstructionParams:
+    """Decode any system program instruction and return the params as a NamedTuple.
+
+    Raises if `instruction.program_id != solders.system_program.ID`.
+
+    Args:
+        instruction (Instruction): A system program instruction.
+
+    Returns:
+        SystemInstructionParams: The decoded instruction params as a concrete ``*Params`` type.
+    """
+    tag, params = _decode_system_instruction(instruction)
+    kind = SystemInstructionTag(tag)
+    if kind == SystemInstructionTag.CreateAccount:
+        return CreateAccountParams(**params)
+    if kind == SystemInstructionTag.CreateAccountWithSeed:
+        return CreateAccountWithSeedParams(**params)
+    if kind == SystemInstructionTag.Assign:
+        return AssignParams(**params)
+    if kind == SystemInstructionTag.AssignWithSeed:
+        return AssignWithSeedParams(**params)
+    if kind == SystemInstructionTag.Transfer:
+        return TransferParams(**params)
+    if kind == SystemInstructionTag.TransferWithSeed:
+        return TransferWithSeedParams(**params)
+    if kind == SystemInstructionTag.Allocate:
+        return AllocateParams(**params)
+    if kind == SystemInstructionTag.AllocateWithSeed:
+        return AllocateWithSeedParams(**params)
+    if kind == SystemInstructionTag.InitializeNonceAccount:
+        return InitializeNonceAccountParams(**params)
+    if kind == SystemInstructionTag.AdvanceNonceAccount:
+        return AdvanceNonceAccountParams(**params)
+    if kind == SystemInstructionTag.WithdrawNonceAccount:
+        return WithdrawNonceAccountParams(**params)
+    if kind == SystemInstructionTag.AuthorizeNonceAccount:
+        return AuthorizeNonceAccountParams(**params)
+    if kind == SystemInstructionTag.UpgradeNonceAccount:
+        return UpgradeNonceAccountParams(**params)
+    raise ValueError(f"Unknown SystemInstructionTag: {kind!r}")
+
+
+class CloseLookupTableParams(NamedTuple):
     """Close lookup table system transaction params."""
 
     lookup_table_address: Pubkey
@@ -590,10 +667,10 @@ def close_lookup_table(params: CloseLookupTableParams) -> Instruction:
     Returns:
         Instruction: The CloseLookupTable instruction.
     """
-    return _close_lookup_table(dict(params))
+    return _close_lookup_table(params._asdict())
 
 
-class CreateLookupTableParams(TypedDict):
+class CreateLookupTableParams(NamedTuple):
     """Create lookup table system transaction params."""
 
     authority_address: Pubkey
@@ -601,7 +678,7 @@ class CreateLookupTableParams(TypedDict):
     recent_slot: int
 
 
-def create_lookup_table(params: CreateLookupTableParams) -> Tuple[Instruction, Pubkey]:
+def create_lookup_table(params: CreateLookupTableParams) -> tuple[Instruction, Pubkey]:
     """Constructs an instruction to create a table account.
 
     Returns the instruction and the table account`s derived address.
@@ -610,13 +687,13 @@ def create_lookup_table(params: CreateLookupTableParams) -> Tuple[Instruction, P
         params (CreateLookupTableParams): The CreateLookupTable params.
 
     Returns:
-        Tuple[Instruction, PubKey]: The CreateLookupTable instruction
+        tuple[Instruction, Pubkey]: The CreateLookupTable instruction
         and the table account`s derived address
     """
-    return _create_lookup_table(dict(params))
+    return _create_lookup_table(params._asdict())
 
 
-class CreateLookupTableSignedParams(TypedDict):
+class CreateLookupTableSignedParams(NamedTuple):
     """Create lookup table signed system transaction params."""
 
     authority_address: Pubkey
@@ -624,7 +701,7 @@ class CreateLookupTableSignedParams(TypedDict):
     recent_slot: int
 
 
-class DeactivateLookupTableParams(TypedDict):
+class DeactivateLookupTableParams(NamedTuple):
     """Deactivate lookup table system transaction params."""
 
     lookup_table_address: Pubkey
@@ -644,16 +721,16 @@ def deactivate_lookup_table(params: DeactivateLookupTableParams) -> Instruction:
         Instruction: The DeactivateLookupTable instruction.
 
     """
-    return _deactivate_lookup_table(dict(params))
+    return _deactivate_lookup_table(params._asdict())
 
 
-class ExtendLookupTableParams(TypedDict):
+class ExtendLookupTableParams(NamedTuple):
     """Extend lookup table system transaction params."""
 
-    payer_address: Optional[Pubkey]
+    payer_address: Pubkey | None
     lookup_table_address: Pubkey
     authority_address: Pubkey
-    new_addresses: List[Pubkey]
+    new_addresses: list[Pubkey]
 
 
 def extend_lookup_table(params: ExtendLookupTableParams) -> Instruction:
@@ -665,10 +742,10 @@ def extend_lookup_table(params: ExtendLookupTableParams) -> Instruction:
     Returns:
         Instruction: The ExtendLookupTable instruction.
     """
-    return _extend_lookup_table(dict(params))
+    return _extend_lookup_table(params._asdict())
 
 
-class FreezeLookupTableParams(TypedDict):
+class FreezeLookupTableParams(NamedTuple):
     """Freeze lookup table system transaction params."""
 
     lookup_table_address: Pubkey
@@ -687,7 +764,7 @@ def freeze_lookup_table(params: FreezeLookupTableParams) -> Instruction:
     Returns:
         Instruction: The FreezeLookupTable instruction.
     """
-    return _freeze_lookup_table(dict(params))
+    return _freeze_lookup_table(params._asdict())
 
 
 __all__ = [
@@ -731,6 +808,10 @@ __all__ = [
     "AuthorizeNonceAccountParams",
     "authorize_nonce_account",
     "decode_authorize_nonce_account",
+    "UpgradeNonceAccountParams",
+    "SystemInstructionTag",
+    "SystemInstructionParams",
+    "decode_system_instruction",
     "CloseLookupTableParams",
     "close_lookup_table",
     "CreateLookupTableParams",
