@@ -34,3 +34,20 @@ def test_unpack_mint_account() -> None:
         ),
     )
     assert parsed == expected
+
+
+def test_token_account_json_roundtrip() -> None:
+    token_account = TokenAccount(
+        mint=Pubkey.from_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+        owner=Pubkey.from_string("7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE"),
+        amount=4389790581151413,
+        delegate=Pubkey.from_string("11111111111111111111111111111111"),
+        state=TokenAccountState.Initialized,
+        is_native=2039280,
+        delegated_amount=123,
+        close_authority=Pubkey.from_string("11111111111111111111111111111111"),
+    )
+
+    raw = token_account.to_json()
+    parsed = TokenAccount.from_json(raw)
+    assert parsed == token_account

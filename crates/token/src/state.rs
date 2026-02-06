@@ -1,5 +1,7 @@
 use derive_more::{From, Into};
 use pyo3::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use solana_program_option::COption;
 use solana_program_pack::Pack;
 use solders_macros::{common_methods_core, enum_original_mapping, richcmp_eq_only};
@@ -121,7 +123,7 @@ token_boilerplate!(Mint, MintOriginal);
 
 /// Token account state.
 #[pyclass(module = "solders.token.state", eq, eq_int)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[enum_original_mapping(AccountState)]
 pub enum TokenAccountState {
     /// Account is not yet initialized
@@ -132,6 +134,61 @@ pub enum TokenAccountState {
     /// Account has been frozen by the mint freeze authority. Neither the account owner nor
     /// the delegate are able to perform operations on this account.
     Frozen,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TokenAccountJSON {
+    #[serde_as(as = "DisplayFromStr")]
+    mint: Pubkey,
+    #[serde_as(as = "DisplayFromStr")]
+    owner: Pubkey,
+    amount: u64,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    delegate: Option<Pubkey>,
+    state: TokenAccountState,
+    is_native: Option<u64>,
+    delegated_amount: u64,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    close_authority: Option<Pubkey>,
+}
+
+impl From<TokenAccount> for TokenAccountJSON {
+    fn from(value: TokenAccount) -> Self {
+        Self {
+            mint: value.0.mint.into(),
+            owner: value.0.owner.into(),
+            amount: value.0.amount,
+            delegate: match value.0.delegate {
+                COption::Some(x) => Some(x.into()),
+                COption::None => None,
+            },
+            state: value.0.state.into(),
+            is_native: value.0.is_native.into(),
+            delegated_amount: value.0.delegated_amount,
+            close_authority: match value.0.close_authority {
+                COption::Some(x) => Some(x.into()),
+                COption::None => None,
+            },
+        }
+    }
+}
+
+impl From<TokenAccountJSON> for TokenAccount {
+    fn from(value: TokenAccountJSON) -> Self {
+        TokenAccountOriginal {
+            mint: value.mint.into(),
+            owner: value.owner.into(),
+            amount: value.amount,
+            delegate: COption::from(value.delegate.map(|x| x.0)),
+            state: value.state.into(),
+            is_native: COption::from(value.is_native),
+            delegated_amount: value.delegated_amount,
+            close_authority: COption::from(value.close_authority.map(|x| x.0)),
+        }
+        .into()
+    }
 }
 
 /// A user token account.
@@ -231,6 +288,19 @@ impl TokenAccount {
     #[getter]
     pub fn close_authority(&self) -> Option<Pubkey> {
         Option::from(self.0.close_authority.map(Pubkey))
+    }
+
+    /// Convert to a JSON string.
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(&TokenAccountJSON::from(*self)).unwrap()
+    }
+
+    /// Build from a JSON string.
+    #[staticmethod]
+    pub fn from_json(raw: &str) -> PyResult<Self> {
+        let parsed: TokenAccountJSON =
+            serde_json::from_str(raw).map_err(|e| to_py_value_err(&e))?;
+        Ok(parsed.into())
     }
 
     #[staticmethod]

@@ -97,7 +97,7 @@ solana-message = "3"
 solana-presigner = "3"
 solana-program-option = "3"
 solana-program-pack = "3"
-solana-pubkey = "3"
+solana-pubkey = { version = "3", features = ["serde"] }
 solana-rent = "3"
 solana-reward-info = "3"
 solana-rpc-client-api = "3"
