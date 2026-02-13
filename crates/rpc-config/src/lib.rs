@@ -11,9 +11,11 @@ use solders_rpc_config_no_rpc_api::{
     RpcTransactionLogsFilterMentions,
 };
 use solders_rpc_config_no_rpc_api::{RpcTokenAccountsFilterMint, RpcTokenAccountsFilterProgramId};
-use solders_rpc_program_accounts_config::RpcProgramAccountsConfig;
+use solders_rpc_program_accounts_config::{RpcProgramAccountsConfig, RpcProgramAccountsV2Config};
 use solders_rpc_request_airdrop_config::RpcRequestAirdropConfig;
-use solders_rpc_send_transaction_config::RpcSendTransactionConfig;
+use solders_rpc_send_transaction_config::{
+    RpcSendTransactionConfig, RpcSimulateBundleAccountsConfig, RpcSimulateBundleConfig,
+};
 use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
@@ -35,6 +37,9 @@ pub fn include_config(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RpcEpochConfig>()?;
     m.add_class::<RpcAccountInfoConfig>()?;
     m.add_class::<RpcProgramAccountsConfig>()?;
+    m.add_class::<RpcProgramAccountsV2Config>()?;
+    m.add_class::<RpcSimulateBundleAccountsConfig>()?;
+    m.add_class::<RpcSimulateBundleConfig>()?;
     m.add_class::<RpcTransactionLogsFilter>()?;
     m.add_class::<RpcTransactionLogsFilterMentions>()?;
     m.add_class::<RpcTransactionLogsConfig>()?;

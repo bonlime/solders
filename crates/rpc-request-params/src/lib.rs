@@ -16,9 +16,9 @@ use solders_rpc_config_no_filter::{
     RpcTokenAccountsFilterWrapper, RpcTransactionConfig, RpcTransactionLogsConfig,
     TransactionLogsFilterWrapper,
 };
-use solders_rpc_program_accounts_config::RpcProgramAccountsConfig;
+use solders_rpc_program_accounts_config::{RpcProgramAccountsConfig, RpcProgramAccountsV2Config};
 use solders_rpc_request_airdrop_config::RpcRequestAirdropConfig;
-use solders_rpc_send_transaction_config::RpcSendTransactionConfig;
+use solders_rpc_send_transaction_config::{RpcSendTransactionConfig, RpcSimulateBundleConfig};
 use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
@@ -80,6 +80,14 @@ pub struct GetMultipleAccountsParams(
 pub struct GetProgramAccountsParams(
     #[serde_as(as = "DisplayFromStr")] pub Pubkey,
     #[serde(default)] pub Option<RpcProgramAccountsConfig>,
+);
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GetProgramAccountsV2Params(
+    #[serde_as(as = "DisplayFromStr")] pub Pubkey,
+    #[serde(default)] pub Option<RpcProgramAccountsV2Config>,
 );
 
 #[serde_as]
@@ -162,6 +170,19 @@ pub struct SendRawTransactionParams(
 pub struct SimulateTransactionParams<T: From<Base64String> + Into<Base64String> + Clone>(
     #[serde_as(as = "FromInto<Base64String>")] pub T,
     #[serde(default)] pub Option<RpcSimulateTransactionConfig>,
+);
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulateBundleTransactionsConfig {
+    pub encoded_transactions: Vec<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct SimulateBundleParams(
+    pub SimulateBundleTransactionsConfig,
+    #[serde(default)] pub Option<RpcSimulateBundleConfig>,
 );
 
 #[serde_as]

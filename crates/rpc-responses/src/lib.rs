@@ -8,6 +8,7 @@ use derive_more::{From, Into};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyType;
 use pyo3::{prelude::*, IntoPyObject, IntoPyObjectExt, PyClass};
+use pythonize::{depythonize, pythonize};
 use serde::{de::Error, Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr, FromInto, OneOrMany, TryFromInto};
@@ -48,7 +49,9 @@ use solana_rpc_client_api::{
     },
 };
 use solana_transaction_error::TransactionError as TransactionErrorOriginal;
-use solana_transaction_status_client_types::TransactionStatus as TransactionStatusOriginal;
+use solana_transaction_status_client_types::{
+    TransactionStatus as TransactionStatusOriginal, UiTransactionReturnData,
+};
 use solders_account::{Account, AccountJSON};
 use solders_account_decoder::UiTokenAmount;
 use solders_epoch_info::EpochInfo;
@@ -58,8 +61,11 @@ use solders_primitives::epoch_schedule::EpochSchedule;
 use solders_pubkey::Pubkey;
 use solders_signature::Signature;
 use solders_traits::to_py_err;
-use solders_traits_core::{PyBytesBincode, PyFromBytesBincode, RichcmpEqualityOnly};
+use solders_traits_core::{
+    handle_py_value_err, PyBytesBincode, PyFromBytesBincode, RichcmpEqualityOnly,
+};
 use solders_transaction_error::TransactionErrorType;
+use solders_transaction_return_data::TransactionReturnData;
 use solders_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiConfirmedBlock};
 use solders_transaction_status_struct::TransactionStatus;
 
@@ -85,9 +91,9 @@ use solders_rpc_responses_common::{
     ProgramNotificationJsonParsed, ProgramNotificationJsonParsedResult, ProgramNotificationResult,
     ProgramNotificationType, RootNotification, RpcBlockhash, RpcIdentity, RpcKeyedAccount,
     RpcKeyedAccountJsonParsed, RpcKeyedAccountMaybeJSON, RpcLeaderSchedule, RpcResponseContext,
-    RpcSignatureResponse, RpcTokenAccountBalance, RpcVersionInfo, RpcVoteAccountInfo,
-    RpcVoteAccountStatus, SignatureNotification, SignatureNotificationResult, SubscriptionResult,
-    TransactionNotification, UnsubscribeResult, RpcTransactionNotification,
+    RpcSignatureResponse, RpcTokenAccountBalance, RpcTransactionNotification, RpcVersionInfo,
+    RpcVoteAccountInfo, RpcVoteAccountStatus, SignatureNotification, SignatureNotificationResult,
+    SubscriptionResult, TransactionNotification, UnsubscribeResult,
 };
 use solders_rpc_responses_tx_status::RpcConfirmedTransactionStatusWithSignature;
 type Slot = u64;
@@ -1268,6 +1274,48 @@ contextless_resp_eq!(
     clone
 );
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcProgramAccountsV2Result {
+    #[pyo3(get)]
+    accounts: Vec<RpcKeyedAccountMaybeJSON>,
+    #[serde(default)]
+    #[pyo3(get)]
+    pagination_key: Option<String>,
+    #[serde(default)]
+    #[pyo3(get)]
+    total_results: Option<u64>,
+    #[serde(default)]
+    #[pyo3(get)]
+    context: Option<RpcResponseContext>,
+}
+
+response_data_boilerplate!(RpcProgramAccountsV2Result);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcProgramAccountsV2Result {
+    #[pyo3(signature = (accounts, pagination_key=None, total_results=None, context=None))]
+    #[new]
+    pub fn new(
+        accounts: Vec<RpcKeyedAccountMaybeJSON>,
+        pagination_key: Option<String>,
+        total_results: Option<u64>,
+        context: Option<RpcResponseContext>,
+    ) -> Self {
+        Self {
+            accounts,
+            pagination_key,
+            total_results,
+            context,
+        }
+    }
+}
+
+contextless_resp_eq!(GetProgramAccountsV2Resp, RpcProgramAccountsV2Result, clone);
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, From, Into)]
 #[pyclass(module = "solders.rpc.responses", subclass)]
 pub struct RpcPerfSample(RpcPerfSampleOriginal);
@@ -1897,6 +1945,151 @@ contextless_resp_eq!(RequestAirdropResp, Signature, "DisplayFromStr");
 contextless_resp_eq!(SendTransactionResp, Signature, "DisplayFromStr");
 contextful_resp_eq!(SimulateTransactionResp, RpcSimulateTransactionResult);
 
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcSimulateBundleSummaryFailure {
+    error: Value,
+    #[serde(default, alias = "tx_signature", alias = "txSignature")]
+    #[pyo3(get)]
+    tx_signature: Option<String>,
+}
+
+response_data_boilerplate!(RpcSimulateBundleSummaryFailure);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcSimulateBundleSummaryFailure {
+    #[pyo3(signature = (error, tx_signature=None))]
+    #[new]
+    pub fn new(error: Bound<'_, PyAny>, tx_signature: Option<String>) -> PyResult<Self> {
+        let parsed = handle_py_value_err(depythonize::<Value>(&error))?;
+        Ok(Self {
+            error: parsed,
+            tx_signature,
+        })
+    }
+
+    #[getter]
+    pub fn error(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        handle_py_value_err(pythonize(py, &self.error).map(Bound::unbind))
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcSimulateBundleSummaryFailed {
+    #[pyo3(get)]
+    failed: RpcSimulateBundleSummaryFailure,
+}
+
+response_data_boilerplate!(RpcSimulateBundleSummaryFailed);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcSimulateBundleSummaryFailed {
+    #[new]
+    pub fn new(failed: RpcSimulateBundleSummaryFailure) -> Self {
+        Self { failed }
+    }
+}
+
+#[derive(FromPyObject, Clone, Debug, PartialEq, Serialize, Deserialize, IntoPyObject)]
+#[serde(untagged)]
+pub enum RpcSimulateBundleSummary {
+    Succeeded(String),
+    Failed(RpcSimulateBundleSummaryFailed),
+}
+
+#[serde_as]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcSimulateBundleTransactionResult {
+    #[serde(default)]
+    #[pyo3(get)]
+    err: Option<TransactionErrorType>,
+    #[serde(default)]
+    #[pyo3(get)]
+    logs: Option<Vec<String>>,
+    #[serde(default)]
+    #[serde_as(as = "Option<Vec<Option<TryFromInto<UiAccount>>>>")]
+    #[pyo3(get)]
+    pre_execution_accounts: Option<Vec<Option<AccountMaybeJSON>>>,
+    #[serde(default)]
+    #[serde_as(as = "Option<Vec<Option<TryFromInto<UiAccount>>>>")]
+    #[pyo3(get)]
+    post_execution_accounts: Option<Vec<Option<AccountMaybeJSON>>>,
+    #[serde(default)]
+    #[pyo3(get)]
+    units_consumed: Option<u64>,
+    #[serde(default)]
+    #[serde_as(as = "Option<TryFromInto<UiTransactionReturnData>>")]
+    #[pyo3(get)]
+    return_data: Option<TransactionReturnData>,
+}
+
+response_data_boilerplate!(RpcSimulateBundleTransactionResult);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcSimulateBundleTransactionResult {
+    #[pyo3(signature = (err=None, logs=None, pre_execution_accounts=None, post_execution_accounts=None, units_consumed=None, return_data=None))]
+    #[new]
+    pub fn new(
+        err: Option<TransactionErrorType>,
+        logs: Option<Vec<String>>,
+        pre_execution_accounts: Option<Vec<Option<AccountMaybeJSON>>>,
+        post_execution_accounts: Option<Vec<Option<AccountMaybeJSON>>>,
+        units_consumed: Option<u64>,
+        return_data: Option<TransactionReturnData>,
+    ) -> Self {
+        Self {
+            err,
+            logs,
+            pre_execution_accounts,
+            post_execution_accounts,
+            units_consumed,
+            return_data,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcSimulateBundleResult {
+    #[pyo3(get)]
+    summary: RpcSimulateBundleSummary,
+    #[serde(default)]
+    #[pyo3(get)]
+    transaction_results: Vec<RpcSimulateBundleTransactionResult>,
+}
+
+response_data_boilerplate!(RpcSimulateBundleResult);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcSimulateBundleResult {
+    #[new]
+    pub fn new(
+        summary: RpcSimulateBundleSummary,
+        transaction_results: Vec<RpcSimulateBundleTransactionResult>,
+    ) -> Self {
+        Self {
+            summary,
+            transaction_results,
+        }
+    }
+}
+
+contextful_resp_no_eq!(SimulateBundleResp, RpcSimulateBundleResult);
+
 notification_no_eq!(BlockNotification, RpcBlockUpdate);
 notification!(LogsNotification, RpcLogsResponse);
 notification_contextless!(SlotNotification, SlotInfo);
@@ -1987,6 +2180,7 @@ pyunion_resp!(
     GetProgramAccountsJsonParsedResp,
     GetProgramAccountsWithContextMaybeJsonParsedResp,
     GetProgramAccountsMaybeJsonParsedResp,
+    GetProgramAccountsV2Resp,
     GetRecentPerformanceSamplesResp,
     GetRecentPrioritizationFeesResp,
     GetSignaturesForAddressResp,
@@ -2011,7 +2205,8 @@ pyunion_resp!(
     RequestAirdropResp,
     SendTransactionResp,
     ValidatorExitResp,
-    SimulateTransactionResp
+    SimulateTransactionResp,
+    SimulateBundleResp
 );
 
 /// Serialize a list of response objects into a single batch response JSON.
@@ -2189,6 +2384,8 @@ pub fn include_responses(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GetProgramAccountsJsonParsedResp>()?;
     m.add_class::<GetProgramAccountsWithContextMaybeJsonParsedResp>()?;
     m.add_class::<GetProgramAccountsMaybeJsonParsedResp>()?;
+    m.add_class::<RpcProgramAccountsV2Result>()?;
+    m.add_class::<GetProgramAccountsV2Resp>()?;
     m.add_class::<RpcPerfSample>()?;
     m.add_class::<GetRecentPerformanceSamplesResp>()?;
     m.add_class::<RpcPrioritizationFee>()?;
@@ -2221,6 +2418,11 @@ pub fn include_responses(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RequestAirdropResp>()?;
     m.add_class::<SendTransactionResp>()?;
     m.add_class::<SimulateTransactionResp>()?;
+    m.add_class::<RpcSimulateBundleSummaryFailure>()?;
+    m.add_class::<RpcSimulateBundleSummaryFailed>()?;
+    m.add_class::<RpcSimulateBundleTransactionResult>()?;
+    m.add_class::<RpcSimulateBundleResult>()?;
+    m.add_class::<SimulateBundleResp>()?;
     m.add_class::<ValidatorExitResp>()?;
     m.add_class::<RpcLogsResponse>()?;
     m.add_class::<SlotInfo>()?;

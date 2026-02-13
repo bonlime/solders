@@ -60,6 +60,7 @@ from solders.rpc.responses import (
     GetProgramAccountsJsonParsedResp,
     GetProgramAccountsMaybeJsonParsedResp,
     GetProgramAccountsResp,
+    GetProgramAccountsV2Resp,
     GetProgramAccountsWithContextJsonParsedResp,
     GetProgramAccountsWithContextMaybeJsonParsedResp,
     GetProgramAccountsWithContextResp,
@@ -107,8 +108,12 @@ from solders.rpc.responses import (
     RpcLogsResponse,
     RpcPerfSample,
     RpcPrioritizationFee,
+    RpcProgramAccountsV2Result,
     RpcResponseContext,
     RpcSignatureResponse,
+    RpcSimulateBundleResult,
+    RpcSimulateBundleSummaryFailed,
+    RpcSimulateBundleSummaryFailure,
     RpcSimulateTransactionResult,
     RpcSnapshotSlotInfo,
     RpcSupply,
@@ -120,6 +125,7 @@ from solders.rpc.responses import (
     SendTransactionResp,
     SignatureNotification,
     SignatureNotificationResult,
+    SimulateBundleResp,
     SimulateTransactionResp,
     SlotInfo,
     SlotNotification,
@@ -1206,6 +1212,47 @@ def test_get_program_accounts_without_context() -> None:
     )
 
 
+def test_get_program_accounts_v2() -> None:
+    raw = """{
+  "jsonrpc": "2.0",
+  "result": {
+    "accounts": [
+      {
+        "account": {
+          "data": "2R9jLfiAQ9bgdcw6h8s44439",
+          "executable": false,
+          "lamports": 15298080,
+          "owner": "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
+          "rentEpoch": 28
+        },
+        "pubkey": "CxELquR1gPP8wHe33gZ4QxqGB3sZ9RSwsJ2KshVewkFY"
+      }
+    ],
+    "paginationKey": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+    "totalResults": 25000
+  },
+  "id": "1"
+}"""
+    parsed = GetProgramAccountsV2Resp.from_json(raw)
+    assert isinstance(parsed, GetProgramAccountsV2Resp)
+    assert isinstance(parsed.value, RpcProgramAccountsV2Result)
+    assert parsed.value.pagination_key == "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+    assert parsed.value.total_results == 25000
+    assert parsed.value.context is None
+
+    account = parsed.value.accounts[0]
+    assert account == RpcKeyedAccount(
+        account=Account(
+            data=b58decode(b"2R9jLfiAQ9bgdcw6h8s44439"),
+            executable=False,
+            lamports=15298080,
+            owner=Pubkey.from_string("4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T"),
+            rent_epoch=28,
+        ),
+        pubkey=Pubkey.from_string("CxELquR1gPP8wHe33gZ4QxqGB3sZ9RSwsJ2KshVewkFY"),
+    )
+
+
 def test_keyed_account_from_json() -> None:
     raw = """{
     "pubkey": "7wZpAKYM1uygtosoF42V4a5tVLsrzpSN6Uedaxc6vGrQ",
@@ -2185,6 +2232,84 @@ def test_send_transaction() -> None:
     )
 
 
+def test_simulate_bundle() -> None:
+    raw = """{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.30.10",
+      "slot": 373999891
+    },
+    "value": {
+      "summary": {
+        "failed": {
+          "error": {
+            "InstructionError": [
+              0,
+              {
+                "Custom": 6001
+              }
+            ]
+          },
+          "tx_signature": "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW"
+        }
+      },
+      "transactionResults": [
+        {
+          "err": null,
+          "logs": [
+            "Program 11111111111111111111111111111111 success"
+          ],
+          "preExecutionAccounts": [
+            {
+              "data": [
+                "AQID",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1,
+              "owner": "11111111111111111111111111111111",
+              "rentEpoch": 324,
+              "space": 3
+            }
+          ],
+          "postExecutionAccounts": null,
+          "unitsConsumed": 450,
+          "returnData": null
+        }
+      ]
+    }
+  },
+  "id": "1"
+}"""
+    parsed = SimulateBundleResp.from_json(raw)
+    assert isinstance(parsed, SimulateBundleResp)
+    assert parsed.context == RpcResponseContext(slot=373999891, api_version="2.30.10")
+    assert isinstance(parsed.value, RpcSimulateBundleResult)
+    summary = parsed.value.summary
+    assert isinstance(summary, RpcSimulateBundleSummaryFailed)
+    assert isinstance(summary.failed, RpcSimulateBundleSummaryFailure)
+    assert isinstance(summary.failed.error, dict)
+    assert summary.failed.error["InstructionError"][1]["Custom"] == 6001
+    assert (
+        summary.failed.tx_signature
+        == "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW"
+    )
+
+    tx_result = parsed.value.transaction_results[0]
+    assert tx_result.units_consumed == 450
+    pre_accounts = tx_result.pre_execution_accounts
+    assert pre_accounts is not None
+    pre_account = pre_accounts[0]
+    assert isinstance(pre_account, Account)
+    assert pre_account.data == bytes([1, 2, 3])
+
+
+def test_simulate_bundle_summary_failure_python_object_error() -> None:
+    failure = RpcSimulateBundleSummaryFailure(error={"foo": {"bar": 1}})
+    assert failure.error == {"foo": {"bar": 1}}
+
+
 def test_simulate_transaction() -> None:
     raw = """{
     "jsonrpc": "2.0",
@@ -2286,12 +2411,12 @@ def test_parse_websocket_message_account_notification_json_parsed() -> None:
     parsed = parse_websocket_message(raw)
     assert isinstance(parsed[0], AccountNotificationJsonParsed)
 
+
 def test_parse_websocket_message_transaction_notification() -> None:
     raw = '{"jsonrpc":"2.0","method":"transactionNotification","params":{"subscription":35227,"result":{"slot":376413380,"signature":"5wdawnKPAxysMe6SJWooFgzSwnCDJiknHJgDdqhGeh4Vj72WaePWLXbJaQfrS3LgLZREB1LRpSmWRPU3cz32eFn9","transaction":{"transaction":["Afct9AP98fal+NteQr7Kr4QcPIlSL2Py+gMRkAVFwINOtN1ixp/4eHOiJI6E9JRx6UlFQPsVKtHe6yQlF7Ph3gqAAQAGDZnn4BUIqb/o5h4kpgCZ4q2m/EOMXQeBq+C5ezgxGL7TDz8HTCscrW6NoFZWeW8sCIlS03+i9zOzK5grNWm2CEpi1Qtla42509IfJqvYA638LtMVJzHmUKRvP/DneHpfv58k4B+Lq629ALP17TKE0LM4qeJ2BxishJLdo8jGBaTroPUlirCAXKY3Aol2lBvfxM/VzH2n57vN5x4MSr6jja/gG9xg//bhVFVcrlFoXu187H1K3etdMXbLnqif3yl5aPGH7IfR90XLOgM4SiamntoMotGqD0HkJBY3fpH/W10xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBkZv5SEXMv/srbpyw5vnvIzlu8X3EmssQ5s6QAAAAAbd9uHXZaGT2cvhRs7reawctIXtX1s3kTqM9YV+/wCpCn9CX97pZsimaPjSn+ImeHIOzs+k9SRGcHTyfG7NG0tBV7BYDzHF/ORKYlgtvPnXjudZQ6CEo5OzUDaNIomTCEvZScQ2AsM/IHeQ7RajUkyhuZdc8SGiqQz/7H34torNj2QLQ6RaeL+47/u94JA3RGgqvkzetj44YIbbZiwXuiIFCAAFAkN7AAAIAAkDAAAAAAAAAAAKAAkBxJxvFgAAAAAMEQkBCwEEAgEBAQEBAQEBBQMAEQlHDUFpAAAAABOcqz0AAAAABwIABgwCAAAAMFQAAAAAAAAA","base64"],"meta":{"err":null,"status":{"Ok":null},"fee":5000,"preBalances":[73672998652,146629078,2039280,8813590362450,14227692273462,2039280,951560,1,1,5299613130,1141440,32335377178,5017967896],"postBalances":[73672972100,146629078,2039280,8814625041811,14226657594101,2039280,973112,1,1,5299613130,1141440,32335377178,5017967896],"innerInstructions":[{"index":3,"instructions":[{"programIdIndex":9,"accounts":[5,2,0],"data":"3RLrVVmdRCkw","stackHeight":2},{"programIdIndex":9,"accounts":[4,3,11],"data":"3QVR67Y37sGb","stackHeight":2}]}],"logMessages":["Program ComputeBudget111111111111111111111111111111 invoke [1]","Program ComputeBudget111111111111111111111111111111 success","Program ComputeBudget111111111111111111111111111111 invoke [1]","Program ComputeBudget111111111111111111111111111111 success","Program hydHwdP54fiTbJ5QXuKDLZFLY5m8pqx15RSmWcL1yAJ invoke [1]","Program hydHwdP54fiTbJ5QXuKDLZFLY5m8pqx15RSmWcL1yAJ consumed 235 of 31255 compute units","Program hydHwdP54fiTbJ5QXuKDLZFLY5m8pqx15RSmWcL1yAJ success","Program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 invoke [1]","Program log: ray_log: A0cNQWkAAAAAE5yrPQAAAAABAAAAAAAAAKU/eDi0AQAAQiFspPAMAADDzgsXBxYAAEH0qz0AAAAA","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program log: Instruction: Transfer","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 16940 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program log: Instruction: Transfer","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4736 of 9826 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 consumed 26624 of 31020 compute units","Program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 success","Program 11111111111111111111111111111111 invoke [1]","Program 11111111111111111111111111111111 success"],"preTokenBalances":[{"accountIndex":2,"mint":"ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY","uiTokenAmount":{"uiAmount":24219707.231939,"decimals":6,"amount":"24219707231939","uiAmountString":"24219707.231939"},"owner":"5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":3,"mint":"So11111111111111111111111111111111111111112","uiTokenAmount":{"uiAmount":8813.58832317,"decimals":9,"amount":"8813588323170","uiAmountString":"8813.58832317"},"owner":"BMnT51N4iSNhWU5PyFFgWwFvN1jgaiiDr9ZHgnkm3iLJ","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":4,"mint":"So11111111111111111111111111111111111111112","uiTokenAmount":{"uiAmount":14227.690234178,"decimals":9,"amount":"14227690234178","uiAmountString":"14227.690234178"},"owner":"5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":5,"mint":"ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY","uiTokenAmount":{"uiAmount":1873553.145765,"decimals":6,"amount":"1873553145765","uiAmountString":"1873553.145765"},"owner":"BMnT51N4iSNhWU5PyFFgWwFvN1jgaiiDr9ZHgnkm3iLJ","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}],"postTokenBalances":[{"accountIndex":2,"mint":"ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY","uiTokenAmount":{"uiAmount":24221473.102858,"decimals":6,"amount":"24221473102858","uiAmountString":"24221473.102858"},"owner":"5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":3,"mint":"So11111111111111111111111111111111111111112","uiTokenAmount":{"uiAmount":8814.623002531,"decimals":9,"amount":"8814623002531","uiAmountString":"8814.623002531"},"owner":"BMnT51N4iSNhWU5PyFFgWwFvN1jgaiiDr9ZHgnkm3iLJ","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":4,"mint":"So11111111111111111111111111111111111111112","uiTokenAmount":{"uiAmount":14226.655554817,"decimals":9,"amount":"14226655554817","uiAmountString":"14226.655554817"},"owner":"5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},{"accountIndex":5,"mint":"ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY","uiTokenAmount":{"uiAmount":1871787.274846,"decimals":6,"amount":"1871787274846","uiAmountString":"1871787.274846"},"owner":"BMnT51N4iSNhWU5PyFFgWwFvN1jgaiiDr9ZHgnkm3iLJ","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}],"rewards":null,"loadedAddresses":{"writable":[],"readonly":[]},"computeUnitsConsumed":27309,"costUnits":30182},"version":0}}}}'
-    parsed = parse_websocket_message(raw)
+    _parsed = parse_websocket_message(raw)
     # assert this is TransactionNotification?
     # assert isinstance(parsed[0], AccountNotificationJsonParsed)
-
 
 
 def test_block_notification() -> None:

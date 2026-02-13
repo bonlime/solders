@@ -22,21 +22,22 @@ use solders_rpc_config_no_filter::{
     RpcSupplyConfig, RpcTokenAccountsFilterWrapper, RpcTransactionConfig, RpcTransactionLogsConfig,
     TransactionLogsFilterWrapper,
 };
-use solders_rpc_program_accounts_config::RpcProgramAccountsConfig;
+use solders_rpc_program_accounts_config::{RpcProgramAccountsConfig, RpcProgramAccountsV2Config};
 use solders_rpc_request_airdrop_config::RpcRequestAirdropConfig;
 use solders_rpc_request_params::{
     BlockSubscribeParams, GetAccountInfoParams, GetBalanceParams, GetBlockParams,
     GetInflationRewardParams, GetLargestAccountsParams, GetLeaderScheduleParams,
-    GetMultipleAccountsParams, GetProgramAccountsParams, GetSignatureStatusesParams,
-    GetSignaturesForAddressParams, GetStakeActivationParams, GetTokenAccountsByDelegateParams,
-    GetTransactionParams, IsBlockhashValidParams, LogsSubscribeParams, RequestAirdropParams,
-    SendTransactionParams, SignatureSubscribeParams, SimulateTransactionParams,
+    GetMultipleAccountsParams, GetProgramAccountsParams, GetProgramAccountsV2Params,
+    GetSignatureStatusesParams, GetSignaturesForAddressParams, GetStakeActivationParams,
+    GetTokenAccountsByDelegateParams, GetTransactionParams, IsBlockhashValidParams,
+    LogsSubscribeParams, RequestAirdropParams, SendTransactionParams, SignatureSubscribeParams,
+    SimulateBundleParams, SimulateBundleTransactionsConfig, SimulateTransactionParams,
 };
 use solders_rpc_request_params_no_config::{
     GetBlocksParams, GetFeeForMessageParams, GetMinimumBalanceForRentExemptionParams,
     PubkeyAndCommitmentParams, RequestBase, UnsubscribeParams,
 };
-use solders_rpc_send_transaction_config::RpcSendTransactionConfig;
+use solders_rpc_send_transaction_config::{RpcSendTransactionConfig, RpcSimulateBundleConfig};
 use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
@@ -1144,6 +1145,64 @@ impl GetProgramAccounts {
 }
 
 request_boilerplate!(GetProgramAccounts);
+
+/// A ``getProgramAccountsV2`` request.
+///
+/// Args:
+///     program (Pubkey): The program that owns the accounts.
+///     config (Optional[RpcProgramAccountsV2Config]): Extra configuration.
+///     id (Optional[int]): Request ID.
+///
+/// Example:
+///     >>> from solders.rpc.requests import GetProgramAccountsV2
+///     >>> from solders.rpc.config import RpcProgramAccountsV2Config, RpcAccountInfoConfig
+///     >>> from solders.rpc.filter import Memcmp
+///     >>> from solders.pubkey import Pubkey
+///     >>> acc_info_config = RpcAccountInfoConfig.default()
+///     >>> filters = [10, Memcmp(offset=10, bytes_=b"123")]
+///     >>> config = RpcProgramAccountsV2Config(
+///     ...     acc_info_config,
+///     ...     filters,
+///     ...     limit=1_000,
+///     ...     changed_since_slot=123_456,
+///     ... )
+///     >>> GetProgramAccountsV2(Pubkey.default(), config).to_json()
+///     '{"method":"getProgramAccountsV2","jsonrpc":"2.0","id":0,"params":["11111111111111111111111111111111",{"filters":[{"dataSize":10},{"memcmp":{"offset":10,"encoding":"bytes","bytes":[49,50,51]}}],"encoding":null,"dataSlice":null,"commitment":null,"minContextSlot":null,"withContext":null,"sortResults":null,"limit":1000,"changedSinceSlot":123456}]}'
+#[pyclass(module = "solders.rpc.requests")]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GetProgramAccountsV2 {
+    #[serde(flatten)]
+    base: RequestBase,
+    params: GetProgramAccountsV2Params,
+}
+
+#[richcmp_eq_only]
+#[common_methods_ser_only]
+#[rpc_id_getter]
+#[pymethods]
+impl GetProgramAccountsV2 {
+    #[new]
+    #[pyo3(signature = (program, config=None, id=None))]
+    fn new(program: Pubkey, config: Option<RpcProgramAccountsV2Config>, id: Option<u64>) -> Self {
+        let params = GetProgramAccountsV2Params(program, config);
+        let base = RequestBase::new(id);
+        Self { base, params }
+    }
+
+    /// Pubkey: The program that owns the accounts.
+    #[getter]
+    pub fn program(&self) -> Pubkey {
+        self.params.0
+    }
+
+    /// Optional[RpcProgramAccountsV2Config]: Extra configuration.
+    #[getter]
+    pub fn config(&self) -> Option<RpcProgramAccountsV2Config> {
+        self.params.1.clone()
+    }
+}
+
+request_boilerplate!(GetProgramAccountsV2);
 
 /// A ``getRecentPerformanceSamples`` request.
 ///
@@ -2352,6 +2411,77 @@ impl SendRawTransaction {
 
 request_boilerplate!(SendRawTransaction);
 
+/// A ``simulateBundle`` request.
+///
+/// Args:
+///     encoded_transactions (Sequence[str]): Encoded serialized transactions to simulate.
+///     config (Optional[RpcSimulateBundleConfig]): Extra simulation configuration.
+///     id (Optional[int]): Request ID.
+///
+/// Example:
+///      >>> from solders.rpc.requests import SimulateBundle
+///      >>> from solders.rpc.config import RpcSimulateBundleAccountsConfig, RpcSimulateBundleConfig
+///      >>> from solders.account_decoder import UiAccountEncoding
+///      >>> from solders.transaction_status import UiTransactionEncoding
+///      >>> account_config = RpcSimulateBundleAccountsConfig(
+///      ...     ["11111111111111111111111111111111"],
+///      ...     UiAccountEncoding.Base64,
+///      ... )
+///      >>> config = RpcSimulateBundleConfig(
+///      ...     [account_config],
+///      ...     [None],
+///      ...     UiTransactionEncoding.Base64,
+///      ...     {"commitment": {"commitment": "processed"}},
+///      ...     True,
+///      ...     False,
+///      ... )
+///      >>> SimulateBundle(["AQID"], config).to_json()
+///      '{"method":"simulateBundle","jsonrpc":"2.0","id":0,"params":[{"encodedTransactions":["AQID"]},{"preExecutionAccountsConfigs":[{"addresses":["11111111111111111111111111111111"],"encoding":"base64"}],"postExecutionAccountsConfigs":[null],"transactionEncoding":"base64","simulationBank":{"commitment":{"commitment":"processed"}},"skipSigVerify":true,"replaceRecentBlockhash":false}]}'
+#[pyclass(module = "solders.rpc.requests")]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct SimulateBundle {
+    #[serde(flatten)]
+    base: RequestBase,
+    params: SimulateBundleParams,
+}
+
+#[richcmp_eq_only]
+#[common_methods_ser_only]
+#[rpc_id_getter]
+#[pymethods]
+impl SimulateBundle {
+    #[new]
+    #[pyo3(signature = (encoded_transactions, config=None, id=None))]
+    fn new(
+        encoded_transactions: Vec<String>,
+        config: Option<RpcSimulateBundleConfig>,
+        id: Option<u64>,
+    ) -> Self {
+        let params = SimulateBundleParams(
+            SimulateBundleTransactionsConfig {
+                encoded_transactions,
+            },
+            config,
+        );
+        let base = RequestBase::new(id);
+        Self { base, params }
+    }
+
+    /// Sequence[str]: Encoded serialized transactions in the bundle.
+    #[getter]
+    fn encoded_transactions(&self) -> Vec<String> {
+        self.params.0.encoded_transactions.clone()
+    }
+
+    /// Optional[RpcSimulateBundleConfig]: Extra simulation configuration.
+    #[getter]
+    fn config(&self) -> Option<RpcSimulateBundleConfig> {
+        self.params.1.clone()
+    }
+}
+
+request_boilerplate!(SimulateBundle);
+
 /// A ``simulateTransaction`` request.
 ///
 /// Args:
@@ -2846,6 +2976,7 @@ pyunion!(
     GetMinimumBalanceForRentExemption,
     GetMultipleAccounts,
     GetProgramAccounts,
+    GetProgramAccountsV2,
     GetRecentPerformanceSamples,
     GetRecentPrioritizationFees,
     GetSignaturesForAddress,
@@ -2867,6 +2998,7 @@ pyunion!(
     IsBlockhashValid,
     MinimumLedgerSlot,
     RequestAirdrop,
+    SimulateBundle,
     ValidatorExit,
     AccountSubscribe,
     BlockSubscribe,
@@ -2923,6 +3055,7 @@ pub fn include_requests(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GetMinimumBalanceForRentExemption>()?;
     m.add_class::<GetMultipleAccounts>()?;
     m.add_class::<GetProgramAccounts>()?;
+    m.add_class::<GetProgramAccountsV2>()?;
     m.add_class::<GetRecentPerformanceSamples>()?;
     m.add_class::<GetRecentPrioritizationFees>()?;
     m.add_class::<GetSignaturesForAddress>()?;
@@ -2944,6 +3077,7 @@ pub fn include_requests(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<IsBlockhashValid>()?;
     m.add_class::<MinimumLedgerSlot>()?;
     m.add_class::<RequestAirdrop>()?;
+    m.add_class::<SimulateBundle>()?;
     m.add_class::<SendLegacyTransaction>()?;
     m.add_class::<SendRawTransaction>()?;
     m.add_class::<SendVersionedTransaction>()?;
