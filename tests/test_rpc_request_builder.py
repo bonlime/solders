@@ -3,6 +3,7 @@
 import json
 from typing import List, Union
 
+from pytest import raises
 from solders.pubkey import Pubkey
 from solders.rpc.config import (
     RpcAccountInfoConfig,
@@ -93,3 +94,22 @@ def test_simulate_bundle_request() -> None:
             },
         ],
     }
+
+
+def test_simulate_bundle_request_tip_bank() -> None:
+    config = RpcSimulateBundleConfig([None], [None], simulation_bank="tip")
+    req = SimulateBundle(["AQID"], config)
+    as_json = json.loads(req.to_json())
+    assert as_json["params"][1]["simulationBank"] == "tip"
+
+
+def test_simulate_bundle_request_slot_bank() -> None:
+    config = RpcSimulateBundleConfig([None], [None], simulation_bank={"slot": 373976835})
+    req = SimulateBundle(["AQID"], config)
+    as_json = json.loads(req.to_json())
+    assert as_json["params"][1]["simulationBank"] == {"slot": 373976835}
+
+
+def test_simulate_bundle_request_invalid_bank() -> None:
+    with raises(ValueError):
+        RpcSimulateBundleConfig([None], [None], simulation_bank="processed")

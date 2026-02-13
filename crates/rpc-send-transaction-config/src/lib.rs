@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 use pythonize::{depythonize, pythonize};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use solana_commitment_config::CommitmentLevel as CommitmentLevelOriginal;
 use solana_rpc_client_types::config as rpc_config;
 use solana_transaction_status_client_types::UiTransactionEncoding as UiTransactionEncodingOriginal;
@@ -141,6 +140,38 @@ impl RpcSimulateBundleAccountsConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum RpcSimulateBundleSimulationBankTip {
+    Tip,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RpcSimulateBundleSimulationBankSlot {
+    slot: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RpcSimulateBundleSimulationBankCommitmentLevel {
+    commitment: CommitmentLevel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RpcSimulateBundleSimulationBankCommitment {
+    commitment: RpcSimulateBundleSimulationBankCommitmentLevel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum RpcSimulateBundleSimulationBank {
+    Tip(RpcSimulateBundleSimulationBankTip),
+    Slot(RpcSimulateBundleSimulationBankSlot),
+    Commitment(RpcSimulateBundleSimulationBankCommitment),
+}
+
 /// Configuration object for ``simulateBundle``.
 ///
 /// Args:
@@ -149,10 +180,12 @@ impl RpcSimulateBundleAccountsConfig {
 ///     post_execution_accounts_configs (Sequence[Optional[RpcSimulateBundleAccountsConfig]]):
 ///         Account-capture config per transaction after execution.
 ///     transaction_encoding (Optional[UiTransactionEncoding]): Encoding used in encoded transactions.
-///     simulation_bank (Optional[Any]): Simulation bank selector.
+///     simulation_bank (Optional[Union[str, dict]]): Simulation bank selector:
+///         ``"tip"``, ``{"slot": <int>}``, or
+///         ``{"commitment": {"commitment": "processed" | "confirmed" | "finalized"}}``.
 ///     skip_sig_verify (bool): Whether to skip signature verification.
 ///     replace_recent_blockhash (bool): Whether to replace recent blockhash before simulation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[pyclass(module = "solders.rpc.config", subclass)]
 pub struct RpcSimulateBundleConfig {
@@ -161,7 +194,7 @@ pub struct RpcSimulateBundleConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     transaction_encoding: Option<UiTransactionEncoding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    simulation_bank: Option<Value>,
+    simulation_bank: Option<RpcSimulateBundleSimulationBank>,
     #[serde(default)]
     skip_sig_verify: bool,
     #[serde(default)]
@@ -203,7 +236,7 @@ impl RpcSimulateBundleConfig {
         replace_recent_blockhash: bool,
     ) -> PyResult<Self> {
         let parsed_bank = simulation_bank
-            .map(|bank| handle_py_value_err(depythonize::<Value>(&bank)))
+            .map(|bank| handle_py_value_err(depythonize::<RpcSimulateBundleSimulationBank>(&bank)))
             .transpose()?;
         Ok(Self {
             pre_execution_accounts_configs,

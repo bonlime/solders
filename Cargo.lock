@@ -5023,7 +5023,6 @@ dependencies = [
  "pyo3",
  "pythonize",
  "serde",
- "serde_json",
  "solana-commitment-config",
  "solana-rpc-client-types",
  "solana-transaction-status-client-types",

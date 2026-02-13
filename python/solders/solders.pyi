@@ -5,10 +5,12 @@ from typing import (
     Dict,
     Final,
     List,
+    Literal,
     Optional,
     Sequence,
     Set,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
 )
@@ -2368,6 +2370,21 @@ class RpcSimulateBundleAccountsConfig:
     @staticmethod
     def from_json(raw: str) -> "RpcSimulateBundleAccountsConfig": ...
 
+class RpcSimulateBundleSimulationBankSlot(TypedDict):
+    slot: int
+
+class RpcSimulateBundleSimulationBankCommitmentLevel(TypedDict):
+    commitment: Literal["processed", "confirmed", "finalized"]
+
+class RpcSimulateBundleSimulationBankCommitment(TypedDict):
+    commitment: RpcSimulateBundleSimulationBankCommitmentLevel
+
+RpcSimulateBundleSimulationBank = Union[
+    Literal["tip"],
+    RpcSimulateBundleSimulationBankSlot,
+    RpcSimulateBundleSimulationBankCommitment,
+]
+
 class RpcSimulateBundleConfig:
     def __init__(
         self,
@@ -2378,7 +2395,7 @@ class RpcSimulateBundleConfig:
             Optional[RpcSimulateBundleAccountsConfig]
         ],
         transaction_encoding: Optional[UiTransactionEncoding] = None,
-        simulation_bank: Optional[Any] = None,
+        simulation_bank: Optional[RpcSimulateBundleSimulationBank] = None,
         skip_sig_verify: bool = False,
         replace_recent_blockhash: bool = False,
     ): ...
@@ -2393,7 +2410,7 @@ class RpcSimulateBundleConfig:
     @property
     def transaction_encoding(self) -> Optional[UiTransactionEncoding]: ...
     @property
-    def simulation_bank(self) -> Optional[Any]: ...
+    def simulation_bank(self) -> Optional[RpcSimulateBundleSimulationBank]: ...
     @property
     def skip_sig_verify(self) -> bool: ...
     @property
