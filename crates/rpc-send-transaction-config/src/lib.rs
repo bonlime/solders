@@ -155,7 +155,15 @@ struct RpcSimulateBundleSimulationBankSlot {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RpcSimulateBundleSimulationBankCommitmentLevel {
-    commitment: CommitmentLevel,
+    commitment: RpcSimulateBundleSimulationBankCommitmentValue,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum RpcSimulateBundleSimulationBankCommitmentValue {
+    Processed,
+    Confirmed,
+    Finalized,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

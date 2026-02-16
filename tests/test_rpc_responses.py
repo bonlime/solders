@@ -114,6 +114,7 @@ from solders.rpc.responses import (
     RpcSimulateBundleResult,
     RpcSimulateBundleSummaryFailed,
     RpcSimulateBundleSummaryFailure,
+    RpcSimulateBundleTransactionFailureDetails,
     RpcSimulateTransactionResult,
     RpcSnapshotSlotInfo,
     RpcSupply,
@@ -2308,6 +2309,47 @@ def test_simulate_bundle() -> None:
 def test_simulate_bundle_summary_failure_python_object_error() -> None:
     failure = RpcSimulateBundleSummaryFailure(error={"foo": {"bar": 1}})
     assert failure.error == {"foo": {"bar": 1}}
+    assert failure.try_parse_transaction_failure() is None
+
+
+def test_simulate_bundle_summary_failure_parse_transaction_failure() -> None:
+    signature = Signature.from_string(
+        "4gcCyfymz4rMX1qfBpuVQPxTLAHCpowS6wEnJTq3rJEk6PK3GgEpSLmranECU2HyqgrvXW6x5XaWPZSzs4mM3k65"
+    )
+    message = "Error processing Instruction 7: custom program error: 0x178b"
+    failure = RpcSimulateBundleSummaryFailure(
+        error={
+            "TransactionFailure": [
+                list(signature.to_bytes()),
+                message,
+            ]
+        }
+    )
+
+    parsed = failure.try_parse_transaction_failure()
+    assert isinstance(parsed, RpcSimulateBundleTransactionFailureDetails)
+    assert parsed.tx_signature == str(signature)
+    assert parsed.raw_tx_signature_bytes == signature.to_bytes()
+    assert parsed.message == message
+    assert parsed.instruction_index == 7
+    assert parsed.custom_error_hex == "0x178b"
+    assert parsed.custom_error_code == 6027
+
+
+def test_simulate_bundle_summary_failure_parse_transaction_failure_fallback_signature() -> None:
+    message = "Error processing Instruction 7: custom program error: 0x178b"
+    tx_signature = "4gcCyfymz4rMX1qfBpuVQPxTLAHCpowS6wEnJTq3rJEk6PK3GgEpSLmranECU2HyqgrvXW6x5XaWPZSzs4mM3k65"
+    failure = RpcSimulateBundleSummaryFailure(
+        error={"TransactionFailure": [[1, 2, 3], message]},
+        tx_signature=tx_signature,
+    )
+    parsed = failure.try_parse_transaction_failure()
+    assert isinstance(parsed, RpcSimulateBundleTransactionFailureDetails)
+    assert parsed.tx_signature == tx_signature
+    assert parsed.raw_tx_signature_bytes is None
+    assert parsed.message == message
+    assert parsed.instruction_index == 7
+    assert parsed.custom_error_code == 6027
 
 
 def test_simulate_transaction() -> None:

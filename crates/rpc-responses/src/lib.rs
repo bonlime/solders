@@ -1945,6 +1945,134 @@ contextless_resp_eq!(RequestAirdropResp, Signature, "DisplayFromStr");
 contextless_resp_eq!(SendTransactionResp, Signature, "DisplayFromStr");
 contextful_resp_eq!(SimulateTransactionResp, RpcSimulateTransactionResult);
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcSimulateBundleTransactionFailureDetails {
+    #[pyo3(get)]
+    tx_signature: Option<String>,
+    #[serde(default)]
+    #[pyo3(get)]
+    raw_tx_signature_bytes: Option<Vec<u8>>,
+    #[pyo3(get)]
+    message: Option<String>,
+    #[pyo3(get)]
+    instruction_index: Option<u64>,
+    #[pyo3(get)]
+    custom_error_hex: Option<String>,
+    #[pyo3(get)]
+    custom_error_code: Option<u64>,
+}
+
+response_data_boilerplate!(RpcSimulateBundleTransactionFailureDetails);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcSimulateBundleTransactionFailureDetails {
+    #[pyo3(signature = (tx_signature=None, raw_tx_signature_bytes=None, message=None, instruction_index=None, custom_error_hex=None, custom_error_code=None))]
+    #[new]
+    pub fn new(
+        tx_signature: Option<String>,
+        raw_tx_signature_bytes: Option<Vec<u8>>,
+        message: Option<String>,
+        instruction_index: Option<u64>,
+        custom_error_hex: Option<String>,
+        custom_error_code: Option<u64>,
+    ) -> Self {
+        Self {
+            tx_signature,
+            raw_tx_signature_bytes,
+            message,
+            instruction_index,
+            custom_error_hex,
+            custom_error_code,
+        }
+    }
+}
+
+fn parse_instruction_index(message: &str) -> Option<u64> {
+    let prefix = "Error processing Instruction ";
+    let instruction_tail = message.strip_prefix(prefix)?;
+    let instruction_str = instruction_tail.split(':').next()?;
+    instruction_str.trim().parse::<u64>().ok()
+}
+
+fn parse_custom_error_hex(message: &str) -> Option<String> {
+    let prefix = "custom program error: 0x";
+    let (_, tail) = message.split_once(prefix)?;
+    let hex_digits: String = tail.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
+    if hex_digits.is_empty() {
+        None
+    } else {
+        Some(format!("0x{hex_digits}"))
+    }
+}
+
+fn parse_signature_bytes(value: &Value) -> Option<Vec<u8>> {
+    let as_array = value.as_array()?;
+    if as_array.len() != Signature::LENGTH {
+        return None;
+    }
+    as_array
+        .iter()
+        .map(|entry| {
+            let num = entry.as_u64()?;
+            u8::try_from(num).ok()
+        })
+        .collect()
+}
+
+fn signature_from_bytes(raw_bytes: &[u8]) -> Option<String> {
+    let as_array: [u8; Signature::LENGTH] = raw_bytes.try_into().ok()?;
+    Signature::from_bytes(as_array)
+        .ok()
+        .map(|sig| sig.to_string())
+}
+
+fn parse_signature(value: &Value, raw_bytes: Option<&[u8]>) -> Option<String> {
+    value
+        .as_str()
+        .map(std::string::ToString::to_string)
+        .or_else(|| raw_bytes.and_then(signature_from_bytes))
+}
+
+fn parse_transaction_failure_details(
+    error: &Value,
+    tx_signature: Option<&str>,
+) -> Option<RpcSimulateBundleTransactionFailureDetails> {
+    let transaction_failure = error
+        .as_object()
+        .and_then(|obj| obj.get("TransactionFailure"))?
+        .as_array()?;
+    if transaction_failure.len() < 2 {
+        return None;
+    }
+
+    let raw_signature_value = &transaction_failure[0];
+    let raw_tx_signature_bytes = parse_signature_bytes(raw_signature_value);
+    let parsed_tx_signature =
+        parse_signature(raw_signature_value, raw_tx_signature_bytes.as_deref())
+            .or_else(|| tx_signature.map(std::string::ToString::to_string));
+    let message = transaction_failure[1]
+        .as_str()
+        .map(std::string::ToString::to_string);
+    let instruction_index = message.as_deref().and_then(parse_instruction_index);
+    let custom_error_hex = message.as_deref().and_then(parse_custom_error_hex);
+    let custom_error_code = custom_error_hex
+        .as_deref()
+        .and_then(|hex| u64::from_str_radix(hex.trim_start_matches("0x"), 16).ok());
+
+    Some(RpcSimulateBundleTransactionFailureDetails::new(
+        parsed_tx_signature,
+        raw_tx_signature_bytes,
+        message,
+        instruction_index,
+        custom_error_hex,
+        custom_error_code,
+    ))
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[pyclass(module = "solders.rpc.responses", subclass)]
@@ -1974,6 +2102,12 @@ impl RpcSimulateBundleSummaryFailure {
     #[getter]
     pub fn error(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         handle_py_value_err(pythonize(py, &self.error).map(Bound::unbind))
+    }
+
+    pub fn try_parse_transaction_failure(
+        &self,
+    ) -> Option<RpcSimulateBundleTransactionFailureDetails> {
+        parse_transaction_failure_details(&self.error, self.tx_signature.as_deref())
     }
 }
 
@@ -2418,6 +2552,7 @@ pub fn include_responses(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RequestAirdropResp>()?;
     m.add_class::<SendTransactionResp>()?;
     m.add_class::<SimulateTransactionResp>()?;
+    m.add_class::<RpcSimulateBundleTransactionFailureDetails>()?;
     m.add_class::<RpcSimulateBundleSummaryFailure>()?;
     m.add_class::<RpcSimulateBundleSummaryFailed>()?;
     m.add_class::<RpcSimulateBundleTransactionResult>()?;
