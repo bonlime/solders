@@ -22,6 +22,7 @@ use solders_rpc_send_transaction_config::{RpcSendTransactionConfig, RpcSimulateB
 use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
+use solders_rpc_txs_for_address_config::RpcTransactionsForAddressConfig;
 
 #[serde_as]
 #[skip_serializing_none]
@@ -96,6 +97,14 @@ pub struct GetProgramAccountsV2Params(
 pub struct GetSignaturesForAddressParams(
     #[serde_as(as = "DisplayFromStr")] pub Pubkey,
     #[serde(default)] pub Option<RpcSignaturesForAddressConfig>,
+);
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GetTransactionsForAddressParams(
+    #[serde_as(as = "DisplayFromStr")] pub Pubkey,
+    #[serde(default)] pub Option<RpcTransactionsForAddressConfig>,
 );
 
 #[serde_as]

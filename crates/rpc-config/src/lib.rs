@@ -20,6 +20,12 @@ use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
 use solders_rpc_simulate_tx_accounts_config::RpcSimulateTransactionAccountsConfig;
+use solders_rpc_txs_for_address_config::{
+    RpcTransactionsForAddressBlockTimeRange, RpcTransactionsForAddressConfig,
+    RpcTransactionsForAddressFilters, RpcTransactionsForAddressSignatureRange,
+    RpcTransactionsForAddressSlotRange, RpcTransactionsForAddressSortOrder,
+    RpcTransactionsForAddressStatus, RpcTransactionsForAddressTokenAccounts,
+};
 
 pub fn include_config(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RpcSignatureStatusConfig>()?;
@@ -50,6 +56,14 @@ pub fn include_config(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RpcBlockSubscribeFilterMentions>()?;
     m.add_class::<RpcBlockSubscribeConfig>()?;
     m.add_class::<RpcSignaturesForAddressConfig>()?;
+    m.add_class::<RpcTransactionsForAddressSlotRange>()?;
+    m.add_class::<RpcTransactionsForAddressBlockTimeRange>()?;
+    m.add_class::<RpcTransactionsForAddressSignatureRange>()?;
+    m.add_class::<RpcTransactionsForAddressFilters>()?;
+    m.add_class::<RpcTransactionsForAddressSortOrder>()?;
+    m.add_class::<RpcTransactionsForAddressStatus>()?;
+    m.add_class::<RpcTransactionsForAddressTokenAccounts>()?;
+    m.add_class::<RpcTransactionsForAddressConfig>()?;
     m.add_class::<RpcBlockConfig>()?;
     m.add_class::<RpcTransactionConfig>()?;
     m.add_class::<RpcContextConfig>()?;

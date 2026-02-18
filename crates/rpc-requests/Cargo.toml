@@ -29,6 +29,7 @@ solders-rpc-send-transaction-config = { workspace = true }
 solders-rpc-sig-status-config = { workspace = true }
 solders-rpc-sigs-for-address-config = { workspace = true }
 solders-rpc-sim-transaction-config = { workspace = true }
+solders-rpc-txs-for-address-config = { workspace = true }
 solders-rpc-version = { workspace = true }
 solders-signature = { workspace = true }
 solders-traits-core = { workspace = true }

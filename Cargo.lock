@@ -4746,6 +4746,7 @@ dependencies = [
  "solders-rpc-sigs-for-address-config",
  "solders-rpc-sim-transaction-config",
  "solders-rpc-simulate-tx-accounts-config",
+ "solders-rpc-txs-for-address-config",
 ]
 
 [[package]]
@@ -4885,6 +4886,7 @@ dependencies = [
  "solders-rpc-sig-status-config",
  "solders-rpc-sigs-for-address-config",
  "solders-rpc-sim-transaction-config",
+ "solders-rpc-txs-for-address-config",
  "solders-signature",
 ]
 
@@ -4926,6 +4928,7 @@ dependencies = [
  "solders-rpc-sig-status-config",
  "solders-rpc-sigs-for-address-config",
  "solders-rpc-sim-transaction-config",
+ "solders-rpc-txs-for-address-config",
  "solders-rpc-version",
  "solders-signature",
  "solders-traits-core",
@@ -5088,6 +5091,20 @@ dependencies = [
  "solders-pubkey",
  "solders-rpc-config-macros",
  "solders-traits-core",
+]
+
+[[package]]
+name = "solders-rpc-txs-for-address-config"
+version = "0.23.0"
+dependencies = [
+ "pyo3",
+ "serde",
+ "serde_json",
+ "solders-commitment-config",
+ "solders-macros",
+ "solders-signature",
+ "solders-traits-core",
+ "solders-transaction-status-enums",
 ]
 
 [[package]]

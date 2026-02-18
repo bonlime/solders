@@ -81,6 +81,7 @@ from solders.rpc.responses import (
     GetTokenSupplyResp,
     GetTransactionCountResp,
     GetTransactionResp,
+    GetTransactionsForAddressResp,
     GetVersionResp,
     GetVoteAccountsResp,
     IsBlockhashValidResp,
@@ -119,6 +120,8 @@ from solders.rpc.responses import (
     RpcSnapshotSlotInfo,
     RpcSupply,
     RpcTokenAccountBalance,
+    RpcTransactionsForAddressFullData,
+    RpcTransactionsForAddressResult,
     RpcVersionInfo,
     RpcVote,
     RpcVoteAccountInfo,
@@ -1521,6 +1524,164 @@ def test_get_signatures_for_address() -> None:
         slot=114,
         block_time=None,
     )
+
+
+def test_get_transactions_for_address() -> None:
+    raw = """{
+  "jsonrpc": "2.0",
+  "result": {
+    "data": [
+      {
+        "signature": "5h6xBEauJ3PK6SWCZ1PGjBvj8vDdWG3KpwATGy1ARAXFSDwt8GFXM7W5Ncn16wmqokgpiKRLuS83KUxyZyv2sUYv",
+        "slot": 1054,
+        "transactionIndex": 42,
+        "err": null,
+        "memo": null,
+        "blockTime": 1641038400,
+        "confirmationStatus": "finalized"
+      },
+      {
+        "slot": 1055,
+        "transactionIndex": 15,
+        "transaction": {
+          "signatures": [
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          "message": {
+            "header": {
+              "numRequiredSignatures": 1,
+              "numReadonlySignedAccounts": 0,
+              "numReadonlyUnsignedAccounts": 0
+            },
+            "accountKeys": [
+              "11111111111111111111111111111111"
+            ],
+            "recentBlockhash": "11111111111111111111111111111111",
+            "instructions": []
+          }
+        },
+        "meta": {
+          "err": null,
+          "status": {
+            "Ok": null
+          },
+          "fee": 5000,
+          "preBalances": [1],
+          "postBalances": [1]
+        },
+        "blockTime": 1641038460
+      }
+    ],
+    "paginationToken": "1055:5"
+  },
+  "id": 1
+}"""
+    parsed = GetTransactionsForAddressResp.from_json(raw)
+    assert isinstance(parsed, GetTransactionsForAddressResp)
+    result = parsed.value
+    assert result == RpcTransactionsForAddressResult(result.data, pagination_token="1055:5")
+    assert result.pagination_token == "1055:5"
+    assert isinstance(result.data[0], RpcConfirmedTransactionStatusWithSignature)
+    assert result.data[0].signature == Signature.from_string(
+        "5h6xBEauJ3PK6SWCZ1PGjBvj8vDdWG3KpwATGy1ARAXFSDwt8GFXM7W5Ncn16wmqokgpiKRLuS83KUxyZyv2sUYv"
+    )
+    assert result.data[0].slot == 1054
+    assert result.data[0].transaction_index == 42
+    assert result.data[0].confirmation_status == TransactionConfirmationStatus.Finalized
+    assert isinstance(result.data[1], RpcTransactionsForAddressFullData)
+    assert result.data[1].slot == 1055
+    assert result.data[1].transaction_index == 15
+    assert result.data[1].block_time == 1641038460
+    assert result.data[1].meta == UiTransactionStatusMeta(
+        err=None, fee=5000, pre_balances=[1], post_balances=[1]
+    )
+    assert (
+        RpcTransactionsForAddressFullData.from_bytes(bytes(result.data[1])) == result.data[1]
+    )
+    assert RpcTransactionsForAddressResult.from_bytes(bytes(result)) == result
+
+
+def test_get_transactions_for_address_full_optional_fields() -> None:
+    raw = """{
+  "jsonrpc": "2.0",
+  "result": {
+    "data": [
+      {
+        "slot": 1055,
+        "transaction": {
+          "signatures": [
+            "1111111111111111111111111111111111111111111111111111111111111111"
+          ],
+          "message": {
+            "header": {
+              "numRequiredSignatures": 1,
+              "numReadonlySignedAccounts": 0,
+              "numReadonlyUnsignedAccounts": 0
+            },
+            "accountKeys": [
+              "11111111111111111111111111111111"
+            ],
+            "recentBlockhash": "11111111111111111111111111111111",
+            "instructions": []
+          }
+        },
+        "blockTime": 1641038460
+      }
+    ],
+    "paginationToken": null
+  },
+  "id": 1
+}"""
+    parsed = GetTransactionsForAddressResp.from_json(raw)
+    assert isinstance(parsed, GetTransactionsForAddressResp)
+    result = parsed.value
+    assert result.pagination_token is None
+    assert len(result.data) == 1
+    assert isinstance(result.data[0], RpcTransactionsForAddressFullData)
+    assert result.data[0].slot == 1055
+    assert result.data[0].transaction_index is None
+    assert result.data[0].meta is None
+    assert result.data[0].block_time == 1641038460
+
+
+def test_get_transactions_for_address_base64_encoding() -> None:
+    raw = """{
+  "jsonrpc": "2.0",
+  "result": {
+    "data": [
+      {
+        "slot": 1055,
+        "transactionIndex": 15,
+        "transaction": [
+          "AcdpxS8h8K1I+AQJn/HjykKc7S4GzQ1JTP90QW298cBiN6zdZc9+DkzTFwJzXrCTuzYLbdtHm31PZpK9C4fQ2woBAAMFR4HnEsDsOldkEZKANONEoZgZAuahmYzfM1mc9Lc/3UTOBq7BlVCri+axlSfAFoJpQFw1sHtPEoVWAp4xo+/bDAan1RcYx3TJKFZjmGkdXraLXrijm0ttXHNVWyEAAAAABqfVFxkvCq/G8mXj+3fMetqCxSnQvjsTbi0AVSAAAAAHYUgdNXR0u3xNdiTr072z2DVec9EQQ/wNo1OAAAAAABRrwjpZEgktyVJF4DeksKggevv/pYSXSVaWmMQIX1f1AQQEAQMCAEUCAAAAAgAAAAAAAAC0j8sIAAAAALWPywgAAAAAxRlEf6JGoUIID6l0/jLHFDX3YpEm0C3eiUn7TwTh294BkDYHYwAAAAA=",
+          "base64"
+        ],
+        "meta": {
+          "err": null,
+          "status": {
+            "Ok": null
+          },
+          "fee": 5000,
+          "preBalances": [1],
+          "postBalances": [1]
+        },
+        "blockTime": 1641038460
+      }
+    ],
+    "paginationToken": "1055:5"
+  },
+  "id": 1
+}"""
+    parsed = GetTransactionsForAddressResp.from_json(raw)
+    assert isinstance(parsed, GetTransactionsForAddressResp)
+    result = parsed.value
+    assert isinstance(result.data[0], RpcTransactionsForAddressFullData)
+    assert result.data[0].slot == 1055
+    assert result.data[0].transaction_index == 15
+    assert result.data[0].meta == UiTransactionStatusMeta(
+        err=None, fee=5000, pre_balances=[1], post_balances=[1]
+    )
+    assert isinstance(result.data[0].transaction, VersionedTransaction)
 
 
 def test_get_signature_statuses() -> None:

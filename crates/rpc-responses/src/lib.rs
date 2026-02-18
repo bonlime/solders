@@ -66,7 +66,10 @@ use solders_traits_core::{
 };
 use solders_transaction_error::TransactionErrorType;
 use solders_transaction_return_data::TransactionReturnData;
-use solders_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiConfirmedBlock};
+use solders_transaction_status::{
+    EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, EncodedVersionedTransaction,
+    UiConfirmedBlock, UiTransactionStatusMeta,
+};
 use solders_transaction_status_struct::TransactionStatus;
 
 use solders_rpc_common::RpcSimulateTransactionResult;
@@ -1406,9 +1409,136 @@ contextless_resp_eq!(
     clone
 );
 
+#[derive(FromPyObject, Clone, Debug, PartialEq, Serialize, Deserialize, IntoPyObject)]
+#[serde(untagged)]
+pub enum RpcTransactionsForAddressData {
+    Signature(RpcConfirmedTransactionStatusWithSignature),
+    Full(RpcTransactionsForAddressFullData),
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcTransactionsForAddressFullData {
+    slot: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transaction_index: Option<u64>,
+    transaction: EncodedTransaction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    meta: Option<UiTransactionStatusMeta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    block_time: Option<i64>,
+}
+
+impl RichcmpEqualityOnly for RpcTransactionsForAddressFullData {}
+impl std::fmt::Display for RpcTransactionsForAddressFullData {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+solders_traits_core::pybytes_general_via_cbor!(RpcTransactionsForAddressFullData);
+solders_traits_core::py_from_bytes_general_via_cbor!(RpcTransactionsForAddressFullData);
+solders_traits_core::common_methods_default!(RpcTransactionsForAddressFullData);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcTransactionsForAddressFullData {
+    #[pyo3(signature = (slot, transaction, transaction_index=None, meta=None, block_time=None))]
+    #[new]
+    pub fn new(
+        slot: u64,
+        transaction: EncodedVersionedTransaction,
+        transaction_index: Option<u64>,
+        meta: Option<UiTransactionStatusMeta>,
+        block_time: Option<i64>,
+    ) -> Self {
+        Self {
+            slot,
+            transaction_index,
+            transaction: transaction.into(),
+            meta,
+            block_time,
+        }
+    }
+
+    #[getter]
+    pub fn slot(&self) -> u64 {
+        self.slot
+    }
+
+    #[getter]
+    pub fn transaction_index(&self) -> Option<u64> {
+        self.transaction_index
+    }
+
+    #[getter]
+    pub fn transaction(&self) -> EncodedVersionedTransaction {
+        self.transaction.clone().into()
+    }
+
+    #[getter]
+    pub fn meta(&self) -> Option<UiTransactionStatusMeta> {
+        self.meta.clone()
+    }
+
+    #[getter]
+    pub fn block_time(&self) -> Option<i64> {
+        self.block_time
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[pyclass(module = "solders.rpc.responses", subclass)]
+pub struct RpcTransactionsForAddressResult {
+    data: Vec<RpcTransactionsForAddressData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pagination_token: Option<String>,
+}
+
+impl RichcmpEqualityOnly for RpcTransactionsForAddressResult {}
+impl std::fmt::Display for RpcTransactionsForAddressResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+solders_traits_core::pybytes_general_via_cbor!(RpcTransactionsForAddressResult);
+solders_traits_core::py_from_bytes_general_via_cbor!(RpcTransactionsForAddressResult);
+solders_traits_core::common_methods_default!(RpcTransactionsForAddressResult);
+
+#[richcmp_eq_only]
+#[common_methods]
+#[pymethods]
+impl RpcTransactionsForAddressResult {
+    #[pyo3(signature = (data, pagination_token=None))]
+    #[new]
+    pub fn new(data: Vec<RpcTransactionsForAddressData>, pagination_token: Option<String>) -> Self {
+        Self {
+            data,
+            pagination_token,
+        }
+    }
+
+    #[getter]
+    pub fn data(&self) -> Vec<RpcTransactionsForAddressData> {
+        self.data.clone()
+    }
+
+    #[getter]
+    pub fn pagination_token(&self) -> Option<String> {
+        self.pagination_token.clone()
+    }
+}
+
 contextless_resp_eq!(
     GetSignaturesForAddressResp,
     Vec<RpcConfirmedTransactionStatusWithSignature>,
+    clone
+);
+contextless_resp_no_eq!(
+    GetTransactionsForAddressResp,
+    RpcTransactionsForAddressResult,
     clone
 );
 
@@ -2318,6 +2448,7 @@ pyunion_resp!(
     GetRecentPerformanceSamplesResp,
     GetRecentPrioritizationFeesResp,
     GetSignaturesForAddressResp,
+    GetTransactionsForAddressResp,
     GetSignatureStatusesResp,
     GetSlotResp,
     GetSlotLeaderResp,
@@ -2526,6 +2657,9 @@ pub fn include_responses(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GetRecentPrioritizationFeesResp>()?;
     m.add_class::<RpcConfirmedTransactionStatusWithSignature>()?;
     m.add_class::<GetSignaturesForAddressResp>()?;
+    m.add_class::<RpcTransactionsForAddressFullData>()?;
+    m.add_class::<RpcTransactionsForAddressResult>()?;
+    m.add_class::<GetTransactionsForAddressResp>()?;
     m.add_class::<GetSignatureStatusesResp>()?;
     m.add_class::<GetSlotResp>()?;
     m.add_class::<GetSlotLeaderResp>()?;

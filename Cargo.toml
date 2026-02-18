@@ -156,6 +156,7 @@ solders-rpc-sig-status-config = { path = "./crates/rpc-sig-status-config", versi
 solders-rpc-sigs-for-address-config = { path = "./crates/rpc-sigs-for-address-config", version = "=0.23.0" }
 solders-rpc-sim-transaction-config = { path = "./crates/rpc-sim-transaction-config", version = "=0.23.0" }
 solders-rpc-simulate-tx-accounts-config = { path = "./crates/rpc-simulate-tx-accounts-config", version = "=0.23.0" }
+solders-rpc-txs-for-address-config = { path = "./crates/rpc-txs-for-address-config", version = "=0.23.0" }
 solders-rpc-version = { path = "./crates/rpc-version", version = "=0.23.0" }
 solders-signature = { path = "./crates/signature", version = "=0.23.0" }
 solders-system-program = { path = "./crates/system-program", version = "=0.23.0" }

@@ -4,25 +4,31 @@ import json
 from typing import List, Union
 
 from pytest import raises
+from solders.account_decoder import UiAccountEncoding
 from solders.pubkey import Pubkey
 from solders.rpc.config import (
     RpcAccountInfoConfig,
     RpcProgramAccountsV2Config,
+    RpcSignatureStatusConfig,
     RpcSimulateBundleAccountsConfig,
     RpcSimulateBundleConfig,
-    RpcSignatureStatusConfig,
+    RpcTransactionsForAddressConfig,
+    RpcTransactionsForAddressFilters,
+    RpcTransactionsForAddressSlotRange,
+    RpcTransactionsForAddressSortOrder,
+    RpcTransactionsForAddressStatus,
 )
 from solders.rpc.filter import Memcmp
 from solders.rpc.requests import (
     GetProgramAccountsV2,
     GetSignatureStatuses,
+    GetTransactionsForAddress,
     RequestAirdrop,
     SimulateBundle,
     batch_to_json,
 )
-from solders.account_decoder import UiAccountEncoding
 from solders.signature import Signature
-from solders.transaction_status import UiTransactionEncoding
+from solders.transaction_status import TransactionDetails, UiTransactionEncoding
 
 
 def test_batch() -> None:
@@ -113,3 +119,32 @@ def test_simulate_bundle_request_slot_bank() -> None:
 def test_simulate_bundle_request_invalid_bank() -> None:
     with raises(ValueError):
         RpcSimulateBundleConfig([None], [None], simulation_bank="processed")
+
+
+def test_get_transactions_for_address_request() -> None:
+    config = RpcTransactionsForAddressConfig(
+        transaction_details=TransactionDetails.Signatures,
+        sort_order=RpcTransactionsForAddressSortOrder.Desc,
+        limit=10,
+        filters=RpcTransactionsForAddressFilters(
+            status=RpcTransactionsForAddressStatus.Succeeded,
+            slot=RpcTransactionsForAddressSlotRange(gte=1000, lt=2000),
+        ),
+    )
+    req = GetTransactionsForAddress(Pubkey.default(), config, 8)
+    as_json = json.loads(req.to_json())
+
+    assert as_json == {
+        "method": "getTransactionsForAddress",
+        "jsonrpc": "2.0",
+        "id": 8,
+        "params": [
+            "11111111111111111111111111111111",
+            {
+                "transactionDetails": "signatures",
+                "sortOrder": "desc",
+                "limit": 10,
+                "filters": {"status": "succeeded", "slot": {"gte": 1000, "lt": 2000}},
+            },
+        ],
+    }

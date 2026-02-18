@@ -29,9 +29,10 @@ use solders_rpc_request_params::{
     GetInflationRewardParams, GetLargestAccountsParams, GetLeaderScheduleParams,
     GetMultipleAccountsParams, GetProgramAccountsParams, GetProgramAccountsV2Params,
     GetSignatureStatusesParams, GetSignaturesForAddressParams, GetStakeActivationParams,
-    GetTokenAccountsByDelegateParams, GetTransactionParams, IsBlockhashValidParams,
-    LogsSubscribeParams, RequestAirdropParams, SendTransactionParams, SignatureSubscribeParams,
-    SimulateBundleParams, SimulateBundleTransactionsConfig, SimulateTransactionParams,
+    GetTokenAccountsByDelegateParams, GetTransactionParams, GetTransactionsForAddressParams,
+    IsBlockhashValidParams, LogsSubscribeParams, RequestAirdropParams, SendTransactionParams,
+    SignatureSubscribeParams, SimulateBundleParams, SimulateBundleTransactionsConfig,
+    SimulateTransactionParams,
 };
 use solders_rpc_request_params_no_config::{
     GetBlocksParams, GetFeeForMessageParams, GetMinimumBalanceForRentExemptionParams,
@@ -41,6 +42,7 @@ use solders_rpc_send_transaction_config::{RpcSendTransactionConfig, RpcSimulateB
 use solders_rpc_sig_status_config::RpcSignatureStatusConfig;
 use solders_rpc_sigs_for_address_config::RpcSignaturesForAddressConfig;
 use solders_rpc_sim_transaction_config::RpcSimulateTransactionConfig;
+use solders_rpc_txs_for_address_config::RpcTransactionsForAddressConfig;
 
 macro_rules! rpc_impl_display {
     ($ident:ident) => {
@@ -1369,6 +1371,64 @@ impl GetSignaturesForAddress {
 }
 
 request_boilerplate!(GetSignaturesForAddress);
+
+/// A ``getTransactionsForAddress`` request.
+///
+/// Args:
+///     address (Pubkey): The address by which to filter transactions.
+///     config (Optional[RpcTransactionsForAddressConfig]): Extra configuration.
+///     id (Optional[int]): Request ID.
+///
+/// Example:
+///     >>> from solders.rpc.requests import GetTransactionsForAddress
+///     >>> from solders.rpc.config import RpcTransactionsForAddressConfig
+///     >>> from solders.transaction_status import TransactionDetails
+///     >>> config = RpcTransactionsForAddressConfig(
+///     ...     transaction_details=TransactionDetails.Signatures,
+///     ...     limit=10,
+///     ... )
+///     >>> GetTransactionsForAddress(Pubkey.default(), config).to_json()
+///     '{"method":"getTransactionsForAddress","jsonrpc":"2.0","id":0,"params":["11111111111111111111111111111111",{"transactionDetails":"signatures","limit":10}]}'
+///
+#[pyclass(module = "solders.rpc.requests")]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GetTransactionsForAddress {
+    #[serde(flatten)]
+    base: RequestBase,
+    params: GetTransactionsForAddressParams,
+}
+
+#[richcmp_eq_only]
+#[common_methods_ser_only]
+#[rpc_id_getter]
+#[pymethods]
+impl GetTransactionsForAddress {
+    #[new]
+    #[pyo3(signature = (address, config=None, id=None))]
+    fn new(
+        address: Pubkey,
+        config: Option<RpcTransactionsForAddressConfig>,
+        id: Option<u64>,
+    ) -> Self {
+        let params = GetTransactionsForAddressParams(address, config);
+        let base = RequestBase::new(id);
+        Self { base, params }
+    }
+
+    /// Pubkey: The address by which to filter transactions.
+    #[getter]
+    pub fn address(&self) -> Pubkey {
+        self.params.0
+    }
+
+    /// Optional[RpcTransactionsForAddressConfig]: Extra configuration.
+    #[getter]
+    pub fn config(&self) -> Option<RpcTransactionsForAddressConfig> {
+        self.params.1.clone()
+    }
+}
+
+request_boilerplate!(GetTransactionsForAddress);
 
 /// A ``getSignatureStatuses`` request.
 ///
@@ -2980,6 +3040,7 @@ pyunion!(
     GetRecentPerformanceSamples,
     GetRecentPrioritizationFees,
     GetSignaturesForAddress,
+    GetTransactionsForAddress,
     GetSignatureStatuses,
     GetSlot,
     GetSlotLeader,
@@ -3059,6 +3120,7 @@ pub fn include_requests(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GetRecentPerformanceSamples>()?;
     m.add_class::<GetRecentPrioritizationFees>()?;
     m.add_class::<GetSignaturesForAddress>()?;
+    m.add_class::<GetTransactionsForAddress>()?;
     m.add_class::<GetSignatureStatuses>()?;
     m.add_class::<GetSlot>()?;
     m.add_class::<GetSlotLeader>()?;
